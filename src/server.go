@@ -1,6 +1,5 @@
-package main
+package DHT
 
 func main() {
-	var n Node
-	n.Create()
+	//var n Node
 }

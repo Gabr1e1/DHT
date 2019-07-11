@@ -1,4 +1,4 @@
-package main
+package DHT
 
 import (
 	"crypto/sha1"
@@ -12,5 +12,5 @@ func getHash(k string) int {
 	for i := range hRes {
 		hash = hash*256 + int(hRes[i])
 	}
-	return hash
+	return hash % 4294967296
 }
