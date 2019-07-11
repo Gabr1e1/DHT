@@ -14,8 +14,8 @@ const M = 32
 const size = 1000
 
 type KVPair struct {
-	key   string
-	value string
+	Key   string
+	Value string
 }
 
 type InfoType struct {
@@ -125,7 +125,7 @@ func (n *Node) Get(k string) (bool, string) {
 func (n *Node) _Get(k *string, reply *string) {
 	id := getHash(*k)
 	if val, ok := n.data[id]; ok {
-		*reply = val.value
+		*reply = val.Value
 	}
 	var p InfoType
 	n.FindSuccessor(&id, &p)
@@ -139,21 +139,26 @@ func (n *Node) _Get(k *string, reply *string) {
 
 func (n *Node) Put(k string, v string) bool {
 	var flg bool
-	n._Put(&KVPair{k, v}, &flg)
+	n.Put_(&KVPair{k, v}, &flg)
 	return flg
 }
 
-func (n *Node) _Put(kv *KVPair, reply *bool) {
-	id := getHash(kv.key)
+func (n *Node) Put_(kv *KVPair, reply *bool) error {
+	id := getHash(kv.Key)
 	var p InfoType
 	n.FindSuccessor(&id, &p)
 	if p == n.info {
-		n.data[id] = KVPair{kv.key, kv.value}
+		n.data[id] = KVPair{kv.Key, kv.Value}
 		*reply = true
 	} else {
 		client := n.connect(p)
-		client.Call("Node.Put", kv, reply)
+		err := client.Call("Node.Put_", kv, reply)
+		if err != nil {
+			fmt.Println("Can't Put data in another node: ", err)
+			return err
+		}
 	}
+	return nil
 }
 
 func (n *Node) Del(k string) bool {
@@ -211,7 +216,7 @@ func (n *Node) GetNodeInfo(_ *int, reply *InfoType) error {
 }
 
 func (n *Node) DirectPut(KV *KVPair, reply *int) error {
-	n.data[getHash(KV.key)] = *KV
+	n.data[getHash(KV.Key)] = *KV
 	return nil
 }
 
@@ -253,7 +258,11 @@ func (n *Node) Join(addr string) bool {
 		log.Fatal("Can't notify other node: ", err)
 		return false
 	}
-	//err = client.Call("Node.TransferData", &n.info, &tmp)
+	err = client.Call("Node.TransferData", &n.info, &tmp)
+	if err != nil {
+		log.Fatal("Can't transfer data: ", err)
+		return false
+	}
 	return true
 }
 

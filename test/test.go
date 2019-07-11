@@ -17,11 +17,12 @@ func main() {
 	n2.Run()
 	n2.Join("127.0.0.1:2000")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 	n1.Dump()
 	n2.Dump()
 
 	n2.Put("ccc", "ddd")
 
 	fmt.Println(n1.Get("ccc"))
+	fmt.Println(n2.Get("aaa"))
 }
