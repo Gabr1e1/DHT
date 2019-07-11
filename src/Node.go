@@ -33,7 +33,7 @@ type Node struct {
 
 //check whether c in [a,b)
 func checkBetween(a, b, mid int) bool {
-	if a > b {
+	if a >= b {
 		return checkBetween(a, int(math.Pow(2, M)), mid) || checkBetween(0, b, mid)
 	}
 	return mid >= a && mid < b
