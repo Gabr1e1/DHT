@@ -66,6 +66,7 @@ func (n *Node) Run() {
 
 func (n *Node) findPredecessor(id int) InfoType {
 	//fmt.Println(n.Info, "Finding Predecessor")
+
 	p := n.Info
 	successor := n.Finger[0]
 
@@ -95,6 +96,20 @@ func (n *Node) findPredecessor(id int) InfoType {
 
 func (n *Node) GetSuccessor(tmp *int, reply *InfoType) error {
 	*reply = n.Finger[0]
+	return nil
+}
+
+func (n *Node) ModifySuccessor(succ *InfoType, reply *int) error {
+	n.mux.Lock()
+	n.Finger[0] = *succ
+	n.mux.Unlock()
+	return nil
+}
+
+func (n *Node) ModifyPredecessor(pred *InfoType, reply *int) error {
+	n.mux.Lock()
+	n.Predecessor = *pred
+	n.mux.Unlock()
 	return nil
 }
 
@@ -275,6 +290,24 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 	return nil
 }
 
+func (n *Node) TransferDataForce(replace *InfoType, reply *int) error {
+	n.mux.Lock()
+	client := n.Connect(*replace)
+	for _, KV := range n.data {
+		var tmp int
+		err := client.Call("Node.DirectPut", &KV, &tmp)
+		if err != nil {
+			n.mux.Unlock()
+			client.Close()
+			log.Fatal("Transfer Failed", err)
+			return err
+		}
+	}
+	n.mux.Unlock()
+	client.Close()
+	return nil
+}
+
 //Join n itself to the network which addr belongs
 func (n *Node) Join(addr string) bool {
 	client, err := rpc.Dial("tcp", addr)
@@ -314,6 +347,30 @@ func (n *Node) Join(addr string) bool {
 	return true
 }
 
+func (n *Node) Quit() {
+	var tmp int
+	err := n.TransferDataForce(&n.Finger[0], &tmp)
+	if err != nil {
+		fmt.Println("Quit error: ", err)
+		return
+	}
+	client := n.Connect(n.Predecessor)
+	err = client.Call("Node.ModifySuccessor", &n.Finger[0], &tmp)
+	client.Close()
+	if err != nil {
+		fmt.Println("Quit error: ", err)
+		return
+	}
+
+	client = n.Connect(n.Finger[0])
+	err = client.Call("Node.ModifyPredecessor", &n.Predecessor, &tmp)
+	client.Close()
+	if err != nil {
+		fmt.Println("Quit error: ", err)
+		return
+	}
+}
+
 //verify(and possibly change) n's successor
 func (n *Node) stablize() {
 	for {
@@ -345,16 +402,16 @@ func (n *Node) stablize() {
 		}
 		var tmp int
 		err = client.Call("Node.Notify", &n.Info, &tmp)
+		client.Close()
 		if err != nil {
 			fmt.Println("Can't Notify: ", err)
 			continue
 		}
-		client.Close()
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
 
-//n(self) is notified of the existence of other which is a candidate for Predecessor
+//n(self) is notified of the existence of another node which is a candidate for Predecessor
 func (n *Node) Notify(other *InfoType, reply *int) error {
 	n.mux.Lock()
 	if n.Predecessor.IPAddr == "" || checkBetween(n.Predecessor.NodeNum+1, n.Info.NodeNum, other.NodeNum) {

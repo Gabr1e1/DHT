@@ -112,49 +112,48 @@ func main() {
 		//	fmt.Println("port ", j+i*5+5, " joined at ", 1000+i*5)
 		//	time.Sleep(3 * time.Second)
 		//}
-		////quit 5 nodes
-		//for j := 0; j < 5; j++ {
-		//	nodes[j+i*5].Quit()
-		//	fmt.Println("quit ", j+i*5, " node")
-		//	time.Sleep(3 * time.Second)
-		//	nodes[j+i*5+1].Dump()
-		//}
-		//nodecnt -= 5
-		//time.Sleep(4 * time.Second)
-		//for j := i*5 + 5; j <= i*15+15; j++ {
-		//	nodes[j].Dump()
-		//}
-		////put 300 kv
-		//for j := 0; j < 300; j++ {
-		//	k := RandStringRunes(30)
-		//	v := RandStringRunes(30)
-		//	kvMap[k] = v
-		//	nodes[rand.Intn(nodecnt)+i*5+5].Put(k, v)
-		//}
-		////get 200 kv and check correctness
-		//
-		//cnt = 0
-		//for k, v := range kvMap {
-		//	if cnt == 200 {
-		//		break
-		//	}
-		//	var tmp = rand.Intn(nodecnt) + i*5 + 5
-		//	fetchedVal, success := nodes[tmp].Get(k)
-		//	if !success {
-		//		fetchedVal, success = nodes[tmp].Get(k)
-		//		log.Fatal("error:can't find key ", k, " from node ", tmp)
-		//
-		//	}
-		//	if fetchedVal != v {
-		//		log.Fatal("actual: ", fetchedVal, " expected: ", v)
-		//	}
-		//	keyList[cnt] = k
-		//	cnt++
-		//}
-		////delete 150 kv
-		//for j := 0; j < 150; j++ {
-		//	delete(kvMap, keyList[j])
-		//	nodes[rand.Intn(nodecnt)+i*5+5].Del(keyList[j])
-		//}
+
+		//quit 5 nodes
+		for j := 0; j < 5; j++ {
+			nodes[j+i*5].Quit()
+			fmt.Println("quit ", j+i*5, " node")
+			time.Sleep(3 * time.Second)
+			nodes[j+i*5+1].Dump()
+		}
+		nodecnt -= 5
+		time.Sleep(4 * time.Second)
+
+		//put 300 kv
+		for j := 0; j < 300; j++ {
+			k := RandStringRunes(30)
+			v := RandStringRunes(30)
+			kvMap[k] = v
+			nodes[rand.Intn(nodecnt)].Put(k, v)
+		}
+		//get 200 kv and check correctness
+
+		cnt = 0
+		for k, v := range kvMap {
+			if cnt == 200 {
+				break
+			}
+			var tmp = rand.Intn(nodecnt)
+			success, fetchedVal := nodes[tmp].Get(k)
+			if !success {
+				success, fetchedVal = nodes[tmp].Get(k)
+				log.Fatal("error:can't find key ", k, " from node ", tmp)
+
+			}
+			if fetchedVal != v {
+				log.Fatal("actual: ", fetchedVal, " expected: ", v)
+			}
+			keyList[cnt] = k
+			cnt++
+		}
+		//delete 150 kv
+		for j := 0; j < 150; j++ {
+			delete(kvMap, keyList[j])
+			nodes[rand.Intn(nodecnt)+i*5+5].Del(keyList[j])
+		}
 	}
 }

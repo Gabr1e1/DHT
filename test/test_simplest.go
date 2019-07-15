@@ -44,12 +44,24 @@ func main() {
 		fmt.Println(i, ok, str)
 	}
 
-	fmt.Println("Start deleting")
-	//Del
+	//fmt.Println("Start deleting")
+	////Del
+	//for i := 'a'; i <= 'z'; i++ {
+	//	n2.Del(string(i))
+	//}
+	//for i := 'a'; i <= 'z'; i++ {
+	//	ok, str := n3.Get(string(i))
+	//	fmt.Println(i, ok, str)
+	//}
+
+	n1.Quit()
+
 	for i := 'a'; i <= 'z'; i++ {
-		n2.Del(string(i))
+		ok, str := n2.Get(string(i))
+		fmt.Println(i, ok, str)
 	}
-	for i := 'a'; i <= 'z'; i++ {
+
+	for i := 'A'; i <= 'Z'; i++ {
 		ok, str := n3.Get(string(i))
 		fmt.Println(i, ok, str)
 	}
