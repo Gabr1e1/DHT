@@ -1,9 +1,10 @@
 package DHT
 
 import (
-	"fmt"
+	"log"
 	"net"
 	"net/rpc"
+	"time"
 )
 
 var cnt = 0
@@ -13,37 +14,26 @@ const maxTry = 3
 func (n *Node) Connect(otherNode InfoType) *rpc.Client {
 	//fmt.Println("Calling: ", otherNode)
 
-	var err error
-	var client *rpc.Client
-	for i := 1; i < maxTry; i++ {
-		client, err = rpc.Dial("tcp", otherNode.IPAddr)
-		if err == nil {
-			return client
+	c := make(chan *rpc.Client, 1)
+	go func() {
+		for i := 0; i < maxTry; i++ {
+			client, err := rpc.Dial("tcp", otherNode.IPAddr)
+			if err == nil {
+				c <- client
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
+	}()
+
+	select {
+	case client := <-c:
+		//fmt.Println("Call Successful")
+		return client
+	case <-time.After(3 * time.Second):
+		log.Fatal("Can't Connect ", otherNode)
+		return nil
 	}
-	fmt.Println(n.Info, err)
-
-	//c := make(chan *rpc.Client, 1)
-	//go func() {
-	//	for i := 0; i < maxTry; i++ {
-	//		client, err := rpc.Dial("tcp", otherNode.IPAddr)
-	//		if err == nil {
-	//			c <- client
-	//			break
-	//		}
-	//		time.Sleep(100 * time.Millisecond)
-	//	}
-	//}()
-	//
-	//select {
-	//case client := <-c:
-	//	//fmt.Println("Call Successful")
-	//	return client
-	//case <-time.After(3 * time.Second):
-	//	log.Fatal("Can't Connect ", otherNode)
-	//	return nil
-	//}
-
 	return nil
 }
 
