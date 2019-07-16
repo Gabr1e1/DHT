@@ -4,7 +4,6 @@ package DHT
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -119,7 +118,7 @@ func (n *Node) findPredecessor(id int) InfoType {
 			//fmt.Println(n.Info, p, id)
 		}
 		if err != nil {
-			log.Fatal("Can't find Predecessor: ", err)
+			fmt.Println("Can't find Predecessor: ", err)
 			return InfoType{}
 		}
 		client, _ := n.Connect(p)
@@ -138,8 +137,6 @@ func (n *Node) ClosestPrecedingFinger(id *int, reply *InfoType) error {
 		if checkBetween(n.Info.NodeNum+1, *id, n.Finger[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Finger[i].IPAddr) {
-				log.Fatal("Node ", n.Finger[i].IPAddr, " Failed from ", n.Info.IPAddr)
-				n.Finger[i] = n.Info
 				continue
 			}
 
@@ -153,8 +150,6 @@ func (n *Node) ClosestPrecedingFinger(id *int, reply *InfoType) error {
 		if checkBetween(n.Info.NodeNum+1, *id, n.Successors[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Successors[i].IPAddr) {
-				log.Fatal("Node ", n.Finger[i].IPAddr, " Failed from ", n.Info.IPAddr)
-				n.Successors[i] = n.Info
 				continue
 			}
 			*reply = n.Successors[i]
@@ -178,7 +173,7 @@ func (n *Node) FindSuccessor(id *int, reply *InfoType) error {
 	client.Close()
 
 	if err != nil {
-		log.Fatal("Can't get successor: ", err)
+		fmt.Println("Can't get successor: ", err)
 		return err
 	}
 	return nil
@@ -290,7 +285,7 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 			if err != nil {
 				n.mux.Unlock()
 				client.Close()
-				log.Fatal("Transfer Failed", err)
+				fmt.Println("Transfer Failed", err)
 				return err
 			}
 			delete(n.data, hashKey)
@@ -315,7 +310,7 @@ func (n *Node) TransferDataForce(replace *InfoType, reply *int) error {
 		if err != nil {
 			n.mux.Unlock()
 			client.Close()
-			log.Fatal("Transfer Failed", err)
+			fmt.Println("Transfer Failed", err)
 			return err
 		}
 	}

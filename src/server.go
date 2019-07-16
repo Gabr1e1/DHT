@@ -161,6 +161,9 @@ func (n *Node) Quit() {
 		fmt.Println("Quit error: ", err)
 		return
 	}
+
+	n.listener.Close()
+	n.status = 0
 }
 
 func (n *Node) ForceQuit() {
