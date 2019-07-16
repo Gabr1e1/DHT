@@ -23,26 +23,34 @@ func main() {
 	n3.Join("127.0.0.1:2000")
 
 	time.Sleep(10 * time.Second)
+
 	n1.Dump()
 	n2.Dump()
 	n3.Dump()
 
 	//Add
 	for i := 'a'; i <= 'z'; i++ {
+		//fmt.Println("HASH: ", DHT.GetHash(string(i)))
 		n1.Put(string(i), string(i))
 	}
+
 	for i := 'a'; i <= 'z'; i++ {
 		ok, str := n2.Get(string(i))
 		fmt.Println(i, ok, str)
 	}
 
 	for i := 'A'; i <= 'Z'; i++ {
+		//fmt.Println(DHT.GetHash(string(i)))
 		n2.Put(string(i), string(i))
 	}
 	for i := 'A'; i <= 'Z'; i++ {
 		ok, str := n1.Get(string(i))
 		fmt.Println(i, ok, str)
 	}
+
+	n1.Dump()
+	n2.Dump()
+	n3.Dump()
 
 	//fmt.Println("Start deleting")
 	////Del
@@ -54,7 +62,12 @@ func main() {
 	//	fmt.Println(i, ok, str)
 	//}
 
-	n1.Quit()
+	fmt.Println("Start Force Quit")
+	n1.ForceQuit()
+
+	time.Sleep(1 * time.Second)
+	n2.Dump()
+	n3.Dump()
 
 	for i := 'a'; i <= 'z'; i++ {
 		ok, str := n2.Get(string(i))

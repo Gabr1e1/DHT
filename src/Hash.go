@@ -4,7 +4,7 @@ import (
 	"crypto/sha1"
 )
 
-func getHash(k string) int {
+func GetHash(k string) int {
 	h := sha1.New()
 	h.Write([]byte(k))
 	hRes := h.Sum(nil)[0:4]

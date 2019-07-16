@@ -9,11 +9,11 @@ import (
 
 // create a dht-net with this node as start node
 func (n *Node) Create(addr string) {
-	n.Info = InfoType{addr, getHash(addr)}
+	n.Info = InfoType{addr, GetHash(addr)}
 	fmt.Println("INFO: ", n.Info)
 	n.data = make(map[int]KVPair)
 	for i := 0; i < M; i++ {
-		n.Finger[i] = n.Info
+		n.Finger[i], n.Successors[i] = n.Info, n.Info
 	}
 }
 
@@ -22,13 +22,19 @@ func (n *Node) Run() {
 	n.server = rpc.NewServer()
 	n.server.Register(n)
 
-	listener, err := net.Listen("tcp", n.Info.IPAddr)
+	var err error = nil
+	if n.listener == nil {
+		n.listener, err = net.Listen("tcp", n.Info.IPAddr)
+	}
 	if err != nil {
 		log.Fatal("listen error: ", err)
 	}
-	go n.server.Accept(listener)
-	go n.stablize()
+	go n.server.Accept(n.listener)
+
+	//n.wg.Add(2)
+	go n.stabilize()
 	go n.fixFingers()
+	//n.wg.Wait()
 }
 
 func (n *Node) Get(k string) (bool, string) {
@@ -50,30 +56,47 @@ func (n *Node) Del(k string) bool {
 }
 
 func (n *Node) Ping(addr string) bool {
-	client, err := rpc.Dial("tcp", addr)
+	//otherwise could be a dead lock
+	if addr == n.Info.IPAddr {
+		return n.status > 0
+	}
+
+	client, err := n.Connect(InfoType{addr, 0})
 	if err != nil {
+		fmt.Println("Ping Failed", addr)
 		return false
 	}
 	var success int
-	client.Call("Node.GetStatus", nil, &success)
+	err = client.Call("Node.GetStatus", 0, &success)
+	if err != nil {
+		fmt.Println("GetStatus Error: ", err)
+		return false
+	}
 	client.Close()
 	return success > 0
 }
 
 //1: F
-func (n *Node) GetStatus(reply *int) {
+func (n *Node) GetStatus(_ *int, reply *int) error {
 	*reply = n.status
+	return nil
 }
 
 func (n *Node) Dump() {
+	fmt.Println("Address: ", n.Info.IPAddr)
 	fmt.Println("Num: ", n.Info.NodeNum)
 	fmt.Println("Predecessor: ", n.Predecessor)
-	fmt.Println("Successor: ", n.Finger[0])
+	fmt.Println("Successor: ", n.Successors)
+	fmt.Println("Data: ")
+	for _, v := range n.data {
+		fmt.Print(v)
+	}
+	fmt.Println()
 }
 
 //Join n itself to the network which addr belongs
 func (n *Node) Join(addr string) bool {
-	client, err := rpc.Dial("tcp", addr)
+	client, err := n.Connect(InfoType{addr, 0})
 	if err != nil {
 		fmt.Println("Can't Connect while attempting to join: ", err)
 		return false
@@ -86,13 +109,14 @@ func (n *Node) Join(addr string) bool {
 	}
 
 	n.mux.Lock()
-	err = client.Call("Node.FindSuccessor", &n.Info.NodeNum, &n.Finger[0])
+	err = client.Call("Node.FindSuccessor", &n.Info.NodeNum, &n.Successors[0])
+	n.Finger[0] = n.Successors[0]
 	n.mux.Unlock()
 	client.Close()
 
-	client = n.Connect(n.Finger[0])
-	if client == nil {
-		fmt.Println("Can't Connect to successor while joining: ", n.Finger[0])
+	client, err = n.Connect(n.Successors[0])
+	if err != nil {
+		fmt.Println("Can't Connect to successor while joining: ", n.Successors[0])
 		return false
 	}
 	var tmp int
@@ -112,24 +136,35 @@ func (n *Node) Join(addr string) bool {
 
 func (n *Node) Quit() {
 	var tmp int
-	err := n.TransferDataForce(&n.Finger[0], &tmp)
+	err := n.TransferDataForce(&n.Successors[0], &tmp)
 	if err != nil {
 		fmt.Println("Quit error: ", err)
 		return
 	}
-	client := n.Connect(n.Predecessor)
-	err = client.Call("Node.ModifySuccessor", &n.Finger[0], &tmp)
+	client, err := n.Connect(n.Predecessor)
+	if err != nil {
+		return
+	}
+	err = client.Call("Node.ModifySuccessors", &n.Successors[0], &tmp)
 	client.Close()
 	if err != nil {
 		fmt.Println("Quit error: ", err)
 		return
 	}
 
-	client = n.Connect(n.Finger[0])
+	client, err = n.Connect(n.Successors[0])
+	if err != nil {
+		return
+	}
 	err = client.Call("Node.ModifyPredecessor", &n.Predecessor, &tmp)
 	client.Close()
 	if err != nil {
 		fmt.Println("Quit error: ", err)
 		return
 	}
+}
+
+func (n *Node) ForceQuit() {
+	n.listener.Close()
+	n.status = 0
 }

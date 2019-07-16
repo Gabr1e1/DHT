@@ -58,7 +58,7 @@ func main() {
 			fmt.Println("port ", port, " joined at 3000")
 		}
 		nodecnt += 30
-		time.Sleep(4 * time.Second)
+		time.Sleep(10 * time.Second)
 		for j := i * 5; j <= i*30+30; j++ {
 			nodes[j].Dump()
 		}
@@ -69,8 +69,8 @@ func main() {
 			kvMap[k] = v
 			nodes[rand.Intn(nodecnt)+i*5].Put(k, v)
 		}
-		//get 200 kv and check correctness
-		var keyList [200]string
+		//get 300 kv and check correctness
+		var keyList [500]string
 		cnt := 0
 		for k, v := range kvMap {
 			if cnt == 200 {
@@ -88,8 +88,8 @@ func main() {
 			keyList[cnt] = k
 			cnt++
 		}
-		//delete 150 kv
-		for j := 0; j < 150; j++ {
+		//delete 300 kv
+		for j := 0; j < 300; j++ {
 			delete(kvMap, keyList[j])
 			nodes[rand.Intn(nodecnt)+i*5].Del(keyList[j])
 		}
@@ -97,21 +97,16 @@ func main() {
 			nodes[j].Dump()
 		}
 
-		////force quit and join 5 nodes
+		//force quit and join 5 nodes
 		//for j := 0; j < 5; j++ {
 		//	nodes[j+i*5+5].ForceQuit()
 		//	time.Sleep(3 * time.Second)
 		//	fmt.Println("force quit node ", j+i*5+5)
 		//}
 		//time.Sleep(10 * time.Second)
-		//for j := i * 5; j <= i*30+30; j++ {
-		//	if nodes[j].Node_.Listening {
-		//		nodes[j].Dump()
-		//	}
-		//}
 		//for j := 0; j < 5; j++ {
-		//	nodes[j+i*5+5] = DHT.NewNode(j + i*5 + 5 + 3000)
-		//	nodes[j+i*5+5].Run(&wg)
+		//	nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j + i*5 + 5 + 3000))
+		//	nodes[j+i*5+5].Run()
 		//	if !nodes[j+i*5+5].Join(localAddress + ":" + strconv.Itoa(3000+i*5)) {
 		//		log.Fatal("join failed")
 		//	}
@@ -131,8 +126,8 @@ func main() {
 		for j := i*5 + 5; j <= i*30+30; j++ {
 			nodes[j].Dump()
 		}
-		//put 300 kv
-		for j := 0; j < 300; j++ {
+		//put 150 kv
+		for j := 0; j < 150; j++ {
 			k := RandStringRunes(30)
 			v := RandStringRunes(30)
 			kvMap[k] = v
