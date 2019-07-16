@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"net"
 	"net/rpc"
 	"sync"
@@ -46,13 +47,12 @@ func checkBetween(a, b, mid int) bool {
 	return mid >= a && mid < b
 }
 
+//the successor list might not be effective due to force quitting nodes
 func (n *Node) FindFirstSuccessorAlive(tmp *int, reply *InfoType) error {
 	for _, node := range n.Successors {
-		if n.Ping(node.IPAddr) {
+		if node == n.Info || n.Ping(node.IPAddr) {
 			*reply = node
 			return nil
-		} else {
-			log.Fatal("1223")
 		}
 	}
 	return nil //No successor
@@ -80,6 +80,7 @@ func (n *Node) ModifySuccessors(succ *InfoType, _ *int) error {
 		n.Successors[i] = newSucList[i-1]
 	}
 	n.mux.Unlock()
+	client.Close()
 	return nil
 }
 
@@ -96,7 +97,9 @@ func (n *Node) GetPredecessor(tmp *int, reply *InfoType) error {
 }
 
 func (n *Node) findPredecessor(id int) InfoType {
-	//cnt := 0
+	//fmt.Println("Finding Predecessor")
+	//var cnt = 0
+
 	p := n.Info
 	var successor InfoType
 	var tmp int
@@ -104,10 +107,11 @@ func (n *Node) findPredecessor(id int) InfoType {
 	//fmt.Println(n.Info, successor)
 
 	for !checkBetween(p.NodeNum+1, successor.NodeNum, id) {
+		//fmt.Println("Start checking: ", p)
 		//cnt++
 		var err error
 		if p != n.Info {
-			client, _ := n.Connect(p) //???????
+			client, _ := n.Connect(p)
 			err = client.Call("Node.ClosestPrecedingFinger", &id, &p)
 			client.Close()
 		} else {
@@ -124,6 +128,7 @@ func (n *Node) findPredecessor(id int) InfoType {
 
 	}
 	//fmt.Printf("Found Predecessor using %d jumps\n", cnt)
+	//fmt.Println("Found predecessor", p)
 	return p
 }
 
@@ -183,6 +188,7 @@ func (n *Node) Get_(k *string, reply *string) error {
 	id := GetHash(*k)
 	if val, ok := n.data[id]; ok {
 		*reply = val.Value
+		return nil
 	}
 	var p InfoType
 	n.FindSuccessor(&id, &p)
@@ -266,6 +272,10 @@ func (n *Node) DirectPut(KV *KVPair, reply *int) error {
 
 //concurrency problem?????
 func (n *Node) TransferData(replace *InfoType, reply *int) error {
+	if replace.IPAddr == "" {
+		return nil
+	}
+
 	n.mux.Lock()
 	client, err := n.Connect(*replace)
 	if err != nil {
@@ -274,7 +284,7 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 	}
 
 	for hashKey, KV := range n.data {
-		if checkBetween(n.Predecessor.NodeNum, replace.NodeNum, hashKey) {
+		if checkBetween(n.Info.NodeNum, replace.NodeNum, hashKey) {
 			var tmp int
 			err := client.Call("Node.DirectPut", &KV, &tmp)
 			if err != nil {
@@ -371,11 +381,11 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 }
 
 func (n *Node) fixFingers() {
-	//for {
-	//	i := rand.Intn(M-1) + 1 //random numbers in [1, M - 1]
-	//	id := n.Info.NodeNum + int(math.Pow(2, float64(i)))
-	//	id = id % (int(math.Pow(2, float64(M))))
-	//	n.FindSuccessor(&id, &n.Finger[i])
-	//	time.Sleep(1000 * time.Millisecond)
-	//}
+	for {
+		i := rand.Intn(M-1) + 1 //random numbers in [1, M - 1]
+		id := n.Info.NodeNum + int(math.Pow(2, float64(i)))
+		id = id % (int(math.Pow(2, float64(M))))
+		n.FindSuccessor(&id, &n.Finger[i])
+		time.Sleep(1000 * time.Millisecond)
+	}
 }

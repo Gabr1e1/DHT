@@ -9,13 +9,10 @@ import (
 
 var cnt = 0
 
-const maxTry = 10
+const maxTry = 3
 
 func (n *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 	//fmt.Println("Calling: ", otherNode)
-
-	var client *rpc.Client
-	var err error
 
 	c := make(chan *rpc.Client, 1)
 	var err error
@@ -33,7 +30,6 @@ func (n *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 
 	select {
 	case client := <-c:
-		//fmt.Println("Call Successful")
 		return client, nil
 	case <-time.After(3000 * time.Millisecond):
 		fmt.Println("Can't Connect ", otherNode)

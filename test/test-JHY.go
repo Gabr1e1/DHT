@@ -45,6 +45,7 @@ func main() {
 	kvMap := make(map[string]string)
 	var nodecnt = 1
 	for i := 0; i < 5; i++ {
+		fmt.Println("Round ", i)
 		//join 30 nodes
 		for j := 0; j < 30; j++ {
 			var index = i*30 + j + 1
@@ -58,7 +59,7 @@ func main() {
 			fmt.Println("port ", port, " joined at 3000")
 		}
 		nodecnt += 30
-		time.Sleep(10 * time.Second)
+		time.Sleep(4 * time.Second)
 		for j := i * 5; j <= i*30+30; j++ {
 			nodes[j].Dump()
 		}
@@ -69,8 +70,8 @@ func main() {
 			kvMap[k] = v
 			nodes[rand.Intn(nodecnt)+i*5].Put(k, v)
 		}
-		//get 300 kv and check correctness
-		var keyList [500]string
+		//get 200 kv and check correctness
+		var keyList [200]string
 		cnt := 0
 		for k, v := range kvMap {
 			if cnt == 200 {
@@ -88,8 +89,8 @@ func main() {
 			keyList[cnt] = k
 			cnt++
 		}
-		//delete 300 kv
-		for j := 0; j < 300; j++ {
+		//delete 150 kv
+		for j := 0; j < 150; j++ {
 			delete(kvMap, keyList[j])
 			nodes[rand.Intn(nodecnt)+i*5].Del(keyList[j])
 		}
@@ -114,6 +115,7 @@ func main() {
 		//	time.Sleep(3 * time.Second)
 		//}
 
+		fmt.Println("Round ", i, " start quit")
 		//quit 5 nodes
 		for j := 0; j < 5; j++ {
 			nodes[j+i*5].Quit()
@@ -126,8 +128,8 @@ func main() {
 		for j := i*5 + 5; j <= i*30+30; j++ {
 			nodes[j].Dump()
 		}
-		//put 150 kv
-		for j := 0; j < 150; j++ {
+		//put 300 kv
+		for j := 0; j < 300; j++ {
 			k := RandStringRunes(30)
 			v := RandStringRunes(30)
 			kvMap[k] = v

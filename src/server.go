@@ -30,11 +30,8 @@ func (n *Node) Run() {
 		log.Fatal("listen error: ", err)
 	}
 	go n.server.Accept(n.listener)
-
-	//n.wg.Add(2)
 	go n.stabilize()
 	go n.fixFingers()
-	//n.wg.Wait()
 }
 
 func (n *Node) Get(k string) (bool, string) {
@@ -125,7 +122,9 @@ func (n *Node) Join(addr string) bool {
 		fmt.Println("Can't notify other node: ", err)
 		return false
 	}
-	err = client.Call("Node.TransferData", &n.Info, &tmp)
+	var pred InfoType
+	err = client.Call("Node.GetPredecessor", 0, &pred)
+	err = client.Call("Node.TransferData", &pred, &tmp)
 	if err != nil {
 		fmt.Println("Can't transfer data: ", err)
 		return false
