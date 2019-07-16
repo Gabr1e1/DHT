@@ -14,6 +14,9 @@ const maxTry = 10
 func (n *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 	//fmt.Println("Calling: ", otherNode)
 
+	var client *rpc.Client
+	var err error
+
 	c := make(chan *rpc.Client, 1)
 	var err error
 	var client *rpc.Client
