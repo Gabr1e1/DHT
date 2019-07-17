@@ -22,7 +22,7 @@ func (n *Node) Create(addr string) {
 func (n *Node) Run() {
 	n.status = 1
 	n.server = rpc.NewServer()
-	n.server.Register(n)
+	_ = n.server.Register(n)
 
 	var err error = nil
 	n.listener, err = net.Listen("tcp", n.Info.IPAddr)
@@ -36,19 +36,19 @@ func (n *Node) Run() {
 
 func (n *Node) Get(k string) (bool, string) {
 	var val string
-	n.Get_(&k, &val)
+	_ = n.Get_(&k, &val)
 	return val != "", val
 }
 
 func (n *Node) Put(k string, v string) bool {
 	var flg bool
-	n.Put_(&KVPair{k, v}, &flg)
+	_ = n.Put_(&KVPair{k, v}, &flg)
 	return flg
 }
 
 func (n *Node) Del(k string) bool {
 	var flg bool
-	n.Del_(&k, &flg)
+	_ = n.Del_(&k, &flg)
 	return flg
 }
 
@@ -71,10 +71,10 @@ func (n *Node) Ping(addr string) bool {
 	err = client.Call("Node.GetStatus", 0, &success)
 	if err != nil {
 		fmt.Println("GetStatus Error: ", err)
-		client.Close()
+		_ = client.Close()
 		return false
 	}
-	client.Close()
+	_ = client.Close()
 	return success > 0
 }
 
@@ -114,7 +114,7 @@ func (n *Node) Join(addr string) bool {
 	err = client.Call("Node.FindSuccessor", &n.Info.NodeNum, &n.Successors[0])
 	n.Finger[0] = n.Successors[0]
 	n.mux.Unlock()
-	client.Close()
+	_ = client.Close()
 
 	client, err = n.Connect(n.Successors[0])
 	if err != nil {
@@ -134,7 +134,7 @@ func (n *Node) Join(addr string) bool {
 		fmt.Println("Can't transfer data: ", err)
 		return false
 	}
-	client.Close()
+	_ = client.Close()
 	return true
 }
 
@@ -142,9 +142,13 @@ func (n *Node) Quit() {
 	var tmp int
 
 	n.mux.Lock()
-	n.FindFirstSuccessorAlive(nil, &n.Successors[0])
+	err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
 	n.mux.Unlock()
-	err := n.TransferDataForce(&n.Successors[0], &tmp)
+	if err != nil {
+		log.Fatal("Quit failed")
+	}
+
+	err = n.TransferDataForce(&n.Successors[0], &tmp)
 	if err != nil {
 		fmt.Println("Quit error: ", err)
 		return
@@ -154,7 +158,7 @@ func (n *Node) Quit() {
 		return
 	}
 	err = client.Call("Node.ModifySuccessors", &n.Successors[0], &tmp)
-	client.Close()
+	_ = client.Close()
 	if err != nil {
 		fmt.Println("Quit error: ", err)
 		return
@@ -165,17 +169,17 @@ func (n *Node) Quit() {
 		return
 	}
 	err = client.Call("Node.ModifyPredecessor", &n.Predecessor, &tmp)
-	client.Close()
+	_ = client.Close()
 	if err != nil {
 		fmt.Println("Quit error: ", err)
 		return
 	}
 
-	n.listener.Close()
+	_ = n.listener.Close()
 	n.status = 0
 }
 
 func (n *Node) ForceQuit() {
-	n.listener.Close()
+	_ = n.listener.Close()
 	n.status = 0
 }
