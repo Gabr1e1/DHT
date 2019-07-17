@@ -1,18 +1,20 @@
 package DHT
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/rpc"
 	"time"
 )
 
-var cnt = 0
-
 const maxTry = 3
 
 func (n *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 	//fmt.Println("Calling: ", otherNode)
+	if otherNode.IPAddr == "" {
+		return nil, errors.New("invalid address")
+	}
 
 	c := make(chan *rpc.Client, 1)
 	var err error
@@ -30,9 +32,13 @@ func (n *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 
 	select {
 	case client := <-c:
+		//fmt.Println("Call Successful")
 		return client, nil
-	case <-time.After(3000 * time.Millisecond):
+	case <-time.After(666 * time.Millisecond):
 		fmt.Println("Can't Connect ", otherNode)
+		if err == nil {
+			err = errors.New("can't connect")
+		}
 		return nil, err
 	}
 }

@@ -11,7 +11,9 @@ import (
 func (n *Node) Create(addr string) {
 	n.Info = InfoType{addr, GetHash(addr)}
 	fmt.Println("INFO: ", n.Info)
-	n.data = make(map[int]KVPair)
+	if len(n.data) == 0 {
+		n.data = make(map[int]KVPair)
+	}
 	for i := 0; i < M; i++ {
 		n.Finger[i], n.Successors[i] = n.Info, n.Info
 	}
@@ -23,9 +25,7 @@ func (n *Node) Run() {
 	n.server.Register(n)
 
 	var err error = nil
-	if n.listener == nil {
-		n.listener, err = net.Listen("tcp", n.Info.IPAddr)
-	}
+	n.listener, err = net.Listen("tcp", n.Info.IPAddr)
 	if err != nil {
 		log.Fatal("listen error: ", err)
 	}
@@ -54,19 +54,24 @@ func (n *Node) Del(k string) bool {
 
 func (n *Node) Ping(addr string) bool {
 	//otherwise could be a dead lock
+	if addr == "" {
+		return false
+	}
 	if addr == n.Info.IPAddr {
 		return n.status > 0
 	}
 
 	client, err := n.Connect(InfoType{addr, 0})
 	if err != nil {
-		fmt.Println("Ping Failed", addr)
+		//fmt.Println("Ping Failed", addr)
 		return false
 	}
+
 	var success int
 	err = client.Call("Node.GetStatus", 0, &success)
 	if err != nil {
 		fmt.Println("GetStatus Error: ", err)
+		client.Close()
 		return false
 	}
 	client.Close()

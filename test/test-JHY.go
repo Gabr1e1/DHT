@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 	"time"
 )
@@ -29,7 +31,11 @@ type keyval struct {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
+	fmt.Println("Start time: ", time.Now())
 	//s,_:=syscall.Socket(syscall.AF_INET,syscall.SOCK_STREAM,syscall.IPPROTO_TCP)
 	//var reuse byte=1
 	//syscall.Setsockopt(s,syscall.SOL_SOCKET,syscall.SO_REUSEADDR,&reuse,int32(unsafe.Sizeof(reuse)))
@@ -44,7 +50,7 @@ func main() {
 
 	kvMap := make(map[string]string)
 	var nodecnt = 1
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 5; i++ {
 		fmt.Println("Round ", i)
 		//join 30 nodes
 		for j := 0; j < 30; j++ {
@@ -105,6 +111,7 @@ func main() {
 			time.Sleep(3 * time.Second)
 			fmt.Println("force quit node ", j+i*5+5)
 		}
+		fmt.Println("Force Quit Done")
 		time.Sleep(10 * time.Second)
 		for j := 0; j < 5; j++ {
 			nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j+i*5+5+3000))
@@ -114,6 +121,9 @@ func main() {
 			}
 			fmt.Println("port ", j+i*5+5, " joined at ", 3000+i*5)
 			time.Sleep(3 * time.Second)
+		}
+		for j := 0; j < 5; j++ {
+			nodes[j+i*5+5].Dump()
 		}
 
 		fmt.Println("Round ", i, " start quit")
@@ -131,6 +141,7 @@ func main() {
 		}
 		//put 300 kv
 		for j := 0; j < 300; j++ {
+			fmt.Println("Put ", j)
 			k := RandStringRunes(30)
 			v := RandStringRunes(30)
 			kvMap[k] = v
@@ -144,11 +155,11 @@ func main() {
 				break
 			}
 			var tmp = rand.Intn(nodecnt) + i*5 + 5
+			fmt.Println("Get ", cnt)
 			success, fetchedVal := nodes[tmp].Get(k)
 			if !success {
 				success, fetchedVal = nodes[tmp].Get(k)
 				log.Fatal("error:can't find key ", k, " from node ", tmp)
-
 			}
 			if fetchedVal != v {
 				log.Fatal("actual: ", fetchedVal, " expected: ", v)
@@ -158,9 +169,11 @@ func main() {
 		}
 		//delete 150 kv
 		for j := 0; j < 150; j++ {
+			fmt.Println("Del", j)
 			delete(kvMap, keyList[j])
 			nodes[rand.Intn(nodecnt)+i*5+5].Del(keyList[j])
 		}
 		time.Sleep(4 * time.Second)
 	}
+	fmt.Println("End time: ", time.Now())
 }

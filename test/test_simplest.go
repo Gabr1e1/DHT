@@ -65,7 +65,7 @@ func main() {
 	fmt.Println("Start Force Quit")
 	n1.ForceQuit()
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(10 * time.Second)
 	n2.Dump()
 	n3.Dump()
 

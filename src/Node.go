@@ -49,10 +49,12 @@ func checkBetween(a, b, mid int) bool {
 //the successor list might not be effective due to force quitting nodes
 func (n *Node) FindFirstSuccessorAlive(tmp *int, reply *InfoType) error {
 	for _, node := range n.Successors {
-		if node == n.Info || n.Ping(node.IPAddr) {
-			*reply = node
-			return nil
+		if !n.Ping(node.IPAddr) {
+			node = InfoType{}
+			continue
 		}
+		*reply = node
+		return nil
 	}
 	return nil //No successor
 }
@@ -66,20 +68,19 @@ func (n *Node) ModifySuccessors(succ *InfoType, _ *int) error {
 	if *succ == n.Info {
 		return nil
 	}
-	n.mux.Lock()
 	client, err := n.Connect(*succ)
 	if err != nil {
-		n.mux.Unlock()
 		return err
 	}
+	n.mux.Lock()
 	var newSucList [M]InfoType
 	client.Call("Node.GetSuccessors", 0, &newSucList)
+	client.Close()
 	n.Finger[0], n.Successors[0] = *succ, *succ
 	for i := 1; i < M; i++ {
 		n.Successors[i] = newSucList[i-1]
 	}
 	n.mux.Unlock()
-	client.Close()
 	return nil
 }
 
@@ -91,6 +92,9 @@ func (n *Node) ModifyPredecessor(pred *InfoType, reply *int) error {
 }
 
 func (n *Node) GetPredecessor(tmp *int, reply *InfoType) error {
+	if n.Predecessor.NodeNum != 0 && !n.Ping(n.Predecessor.IPAddr) {
+		n.Predecessor = InfoType{}
+	}
 	*reply = n.Predecessor
 	return nil
 }
@@ -106,15 +110,14 @@ func (n *Node) findPredecessor(id int) InfoType {
 	//fmt.Println(n.Info, successor)
 
 	for !checkBetween(p.NodeNum+1, successor.NodeNum, id) {
-		//fmt.Println("Start checking: ", p)
 		//cnt++
 		var err error
 		if p != n.Info {
 			client, _ := n.Connect(p)
-			err = client.Call("Node.ClosestPrecedingFinger", &id, &p)
+			err = client.Call("Node.ClosestPrecedingNode", &id, &p)
 			client.Close()
 		} else {
-			err = n.ClosestPrecedingFinger(&id, &p)
+			err = n.ClosestPrecedingNode(&id, &p)
 			//fmt.Println(n.Info, p, id)
 		}
 		if err != nil {
@@ -122,6 +125,7 @@ func (n *Node) findPredecessor(id int) InfoType {
 			return InfoType{}
 		}
 		client, _ := n.Connect(p)
+		//fmt.Println("Next to check: ", p)
 		client.Call("Node.FindFirstSuccessorAlive", 0, &successor)
 		client.Close()
 
@@ -131,15 +135,15 @@ func (n *Node) findPredecessor(id int) InfoType {
 	return p
 }
 
-func (n *Node) ClosestPrecedingFinger(id *int, reply *InfoType) error {
+func (n *Node) ClosestPrecedingNode(id *int, reply *InfoType) error {
 	//first check finger table
 	for i := M - 1; i >= 0; i-- {
 		if checkBetween(n.Info.NodeNum+1, *id, n.Finger[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Finger[i].IPAddr) {
+				n.Finger[i] = InfoType{}
 				continue
 			}
-
 			*reply = n.Finger[i]
 			return nil
 		}
@@ -150,6 +154,7 @@ func (n *Node) ClosestPrecedingFinger(id *int, reply *InfoType) error {
 		if checkBetween(n.Info.NodeNum+1, *id, n.Successors[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Successors[i].IPAddr) {
+				n.Successors[i] = InfoType{}
 				continue
 			}
 			*reply = n.Successors[i]
@@ -162,12 +167,12 @@ func (n *Node) ClosestPrecedingFinger(id *int, reply *InfoType) error {
 }
 
 func (n *Node) FindSuccessor(id *int, reply *InfoType) error {
-	n.mux.Lock()
 	t := n.findPredecessor(*id)
 	client, err := n.Connect(t)
 	if err != nil {
 		return err
 	}
+	n.mux.Lock()
 	err = client.Call("Node.FindFirstSuccessorAlive", 0, reply)
 	n.mux.Unlock()
 	client.Close()
@@ -271,13 +276,12 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 		return nil
 	}
 
-	n.mux.Lock()
 	client, err := n.Connect(*replace)
 	if err != nil {
-		n.mux.Unlock()
 		return err
 	}
 
+	n.mux.Lock()
 	for hashKey, KV := range n.data {
 		if checkBetween(n.Info.NodeNum, replace.NodeNum, hashKey) {
 			var tmp int
@@ -297,13 +301,12 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 }
 
 func (n *Node) TransferDataForce(replace *InfoType, reply *int) error {
-	n.mux.Lock()
 	client, err := n.Connect(*replace)
 	if err != nil {
-		n.mux.Unlock()
 		return err
 	}
 
+	n.mux.Lock()
 	for _, KV := range n.data {
 		var tmp int
 		err := client.Call("Node.DirectPut", &KV, &tmp)
@@ -322,36 +325,41 @@ func (n *Node) TransferDataForce(replace *InfoType, reply *int) error {
 //verify(and possibly change) n's successor
 func (n *Node) stabilize() {
 	for {
+		if n.status == 0 {
+			break
+		}
+		var tmp int
+
 		n.mux.Lock()
 		var x InfoType
-		n.FindFirstSuccessorAlive(nil, &n.Successors[0])
+		n.FindFirstSuccessorAlive(nil, &x)
+		n.mux.Unlock()
+		//fmt.Println("First Successor alive of ", n.Info, " is ", n.Successors[0])
+
 		client, err := n.Connect(n.Successors[0])
 		if err != nil {
-			n.mux.Unlock()
 			continue
 		}
 		err = client.Call("Node.GetPredecessor", 0, &x)
 		if err != nil {
 			fmt.Println("Can't get predecessor: ", err)
-			n.mux.Unlock()
 			continue
 		}
 		//fmt.Println(n.Info.NodeNum, n.Successors[0].NodeNum, x.NodeNum)
 
+		n.mux.Lock()
 		if x.NodeNum != 0 && checkBetween(n.Info.NodeNum+1, n.Successors[0].NodeNum, x.NodeNum) {
 			n.Successors[0], n.Finger[0] = x, x
-			fmt.Printf("STABLIZE: %d's successor is %d\n", n.Info.NodeNum, x.NodeNum)
+			fmt.Printf("STABILIZE: %d's successor is %d\n", n.Info.NodeNum, x.NodeNum)
 		}
 		n.mux.Unlock()
 		client.Close()
 
+		n.ModifySuccessors(&n.Successors[0], &tmp)
 		client, err = n.Connect(n.Successors[0])
 		if err != nil {
 			continue
 		}
-
-		var tmp int
-		n.ModifySuccessors(&n.Successors[0], &tmp)
 
 		err = client.Call("Node.Notify", &n.Info, &tmp)
 		client.Close()
@@ -359,7 +367,7 @@ func (n *Node) stabilize() {
 			fmt.Println("Can't Notify: ", err)
 			continue
 		}
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(333 * time.Millisecond)
 	}
 }
 
@@ -377,10 +385,13 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 
 func (n *Node) fixFingers() {
 	for {
+		if n.status == 0 {
+			break
+		}
 		i := rand.Intn(M-1) + 1 //random numbers in [1, M - 1]
 		id := n.Info.NodeNum + int(math.Pow(2, float64(i)))
 		id = id % (int(math.Pow(2, float64(M))))
 		n.FindSuccessor(&id, &n.Finger[i])
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(666 * time.Millisecond)
 	}
 }
