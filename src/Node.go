@@ -48,9 +48,9 @@ func checkBetween(a, b, mid int) bool {
 
 //the successor list might not be effective due to force quitting nodes
 func (n *Node) FindFirstSuccessorAlive(tmp *int, reply *InfoType) error {
-	for _, node := range n.Successors {
+	for i, node := range n.Successors {
 		if !n.Ping(node.IPAddr) {
-			node = InfoType{}
+			n.Successors[i] = InfoType{}
 			continue
 		}
 		*reply = node
@@ -270,7 +270,6 @@ func (n *Node) DirectPut(KV *KVPair, reply *int) error {
 	return nil
 }
 
-//concurrency problem?????
 func (n *Node) TransferData(replace *InfoType, reply *int) error {
 	if replace.IPAddr == "" {
 		return nil
@@ -329,10 +328,10 @@ func (n *Node) stabilize() {
 			break
 		}
 		var tmp int
+		var x InfoType
 
 		n.mux.Lock()
-		var x InfoType
-		n.FindFirstSuccessorAlive(nil, &x)
+		n.FindFirstSuccessorAlive(nil, &n.Successors[0])
 		n.mux.Unlock()
 		//fmt.Println("First Successor alive of ", n.Info, " is ", n.Successors[0])
 

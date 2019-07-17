@@ -50,7 +50,7 @@ func main() {
 
 	kvMap := make(map[string]string)
 	var nodecnt = 1
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 1; i++ {
 		fmt.Println("Round ", i)
 		//join 30 nodes
 		for j := 0; j < 30; j++ {
@@ -104,27 +104,27 @@ func main() {
 			nodes[j].Dump()
 		}
 
-		fmt.Println("Start Force Quit")
-		//force quit and join 5 nodes
-		for j := 0; j < 5; j++ {
-			nodes[j+i*5+5].ForceQuit()
-			time.Sleep(3 * time.Second)
-			fmt.Println("force quit node ", j+i*5+5)
-		}
-		fmt.Println("Force Quit Done")
-		time.Sleep(10 * time.Second)
-		for j := 0; j < 5; j++ {
-			nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j+i*5+5+3000))
-			nodes[j+i*5+5].Run()
-			if !nodes[j+i*5+5].Join(localAddress + ":" + strconv.Itoa(3000+i*5)) {
-				log.Fatal("join failed")
-			}
-			fmt.Println("port ", j+i*5+5, " joined at ", 3000+i*5)
-			time.Sleep(3 * time.Second)
-		}
-		for j := 0; j < 5; j++ {
-			nodes[j+i*5+5].Dump()
-		}
+		//fmt.Println("Start Force Quit")
+		////force quit and join 5 nodes
+		//for j := 0; j < 5; j++ {
+		//	nodes[j+i*5+5].ForceQuit()
+		//	time.Sleep(3 * time.Second)
+		//	fmt.Println("force quit node ", j+i*5+5)
+		//}
+		//fmt.Println("Force Quit Done")
+		//time.Sleep(10 * time.Second)
+		//for j := 0; j < 5; j++ {
+		//	nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j+i*5+5+3000))
+		//	nodes[j+i*5+5].Run()
+		//	if !nodes[j+i*5+5].Join(localAddress + ":" + strconv.Itoa(3000+i*5)) {
+		//		log.Fatal("join failed")
+		//	}
+		//	fmt.Println("port ", j+i*5+5, " joined at ", 3000+i*5)
+		//	time.Sleep(3 * time.Second)
+		//}
+		//for j := 0; j < 5; j++ {
+		//	nodes[j+i*5+5].Dump()
+		//}
 
 		fmt.Println("Round ", i, " start quit")
 		//quit 5 nodes

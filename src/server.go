@@ -140,6 +140,10 @@ func (n *Node) Join(addr string) bool {
 
 func (n *Node) Quit() {
 	var tmp int
+
+	n.mux.Lock()
+	n.FindFirstSuccessorAlive(nil, &n.Successors[0])
+	n.mux.Unlock()
 	err := n.TransferDataForce(&n.Successors[0], &tmp)
 	if err != nil {
 		fmt.Println("Quit error: ", err)
