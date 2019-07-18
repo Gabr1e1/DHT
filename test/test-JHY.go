@@ -53,7 +53,7 @@ func main() {
 	for i := 0; i < 1; i++ {
 		fmt.Println("Round ", i)
 		//join 30 nodes
-		for j := 0; j < 30; j++ {
+		for j := 0; j < 10; j++ {
 			var index = i*30 + j + 1
 			port++
 			nodes[index].Create(localAddress + ":" + strconv.Itoa(port))
@@ -64,11 +64,12 @@ func main() {
 			time.Sleep(1 * time.Second)
 			fmt.Println("port ", port, " joined at 1000")
 		}
-		nodecnt += 30
-		time.Sleep(4 * time.Second)
-		for j := i * 5; j <= i*30+30; j++ {
+		nodecnt += 10
+		time.Sleep(10 * time.Second)
+		for j := i * 5; j <= i*30+10; j++ {
 			nodes[j].Dump()
 		}
+
 		//put 300 kv
 		for j := 0; j < 300; j++ {
 			fmt.Println(j)

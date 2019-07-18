@@ -18,7 +18,7 @@ func (n *Node) Create(addr string) {
 		n.data = make(map[string]KVPair)
 	}
 	for i := 0; i < M; i++ {
-		n.Finger[i], n.Successors[i] = n.Info, n.Info
+		n.Finger[i], n.Successors[i] = copyInfo(n.Info), copyInfo(n.Info)
 	}
 }
 
@@ -113,7 +113,6 @@ func (n *Node) Join(addr string) bool {
 		fmt.Println("Can't Join: ", err)
 		return false
 	}
-
 	n.mux.Lock()
 	err = client.Call("Node.FindSuccessor", n.Info.NodeNum, &n.Successors[0])
 	n.Finger[0] = n.Successors[0]
