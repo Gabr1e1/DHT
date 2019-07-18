@@ -44,8 +44,8 @@ func main() {
 	localAddress := DHT.GetLocalAddress()
 	fmt.Println("local address: " + localAddress)
 
-	port := 3000
-	nodes[0].Create(localAddress + ":3000")
+	port := 1000
+	nodes[0].Create(localAddress + ":1000")
 	nodes[0].Run()
 
 	kvMap := make(map[string]string)
@@ -58,11 +58,11 @@ func main() {
 			port++
 			nodes[index].Create(localAddress + ":" + strconv.Itoa(port))
 			nodes[index].Run()
-			if !nodes[index].Join(localAddress + ":" + strconv.Itoa(3000+5*i)) {
+			if !nodes[index].Join(localAddress + ":" + strconv.Itoa(1000+5*i)) {
 				log.Fatal("join failed")
 			}
 			time.Sleep(1 * time.Second)
-			fmt.Println("port ", port, " joined at 3000")
+			fmt.Println("port ", port, " joined at 1000")
 		}
 		nodecnt += 30
 		time.Sleep(4 * time.Second)
@@ -71,6 +71,7 @@ func main() {
 		}
 		//put 300 kv
 		for j := 0; j < 300; j++ {
+			fmt.Println(j)
 			k := RandStringRunes(30)
 			v := RandStringRunes(30)
 			kvMap[k] = v
@@ -80,6 +81,7 @@ func main() {
 		var keyList [200]string
 		cnt := 0
 		for k, v := range kvMap {
+			fmt.Println(cnt)
 			if cnt == 200 {
 				break
 			}
@@ -97,6 +99,7 @@ func main() {
 		}
 		//delete 150 kv
 		for j := 0; j < 150; j++ {
+			fmt.Println(j)
 			delete(kvMap, keyList[j])
 			nodes[rand.Intn(nodecnt)+i*5].Del(keyList[j])
 		}
@@ -104,27 +107,27 @@ func main() {
 			nodes[j].Dump()
 		}
 
-		//fmt.Println("Start Force Quit")
-		////force quit and join 5 nodes
-		//for j := 0; j < 5; j++ {
-		//	nodes[j+i*5+5].ForceQuit()
-		//	time.Sleep(3 * time.Second)
-		//	fmt.Println("force quit node ", j+i*5+5)
-		//}
-		//fmt.Println("Force Quit Done")
-		//time.Sleep(10 * time.Second)
-		//for j := 0; j < 5; j++ {
-		//	nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j+i*5+5+3000))
-		//	nodes[j+i*5+5].Run()
-		//	if !nodes[j+i*5+5].Join(localAddress + ":" + strconv.Itoa(3000+i*5)) {
-		//		log.Fatal("join failed")
-		//	}
-		//	fmt.Println("port ", j+i*5+5, " joined at ", 3000+i*5)
-		//	time.Sleep(3 * time.Second)
-		//}
-		//for j := 0; j < 5; j++ {
-		//	nodes[j+i*5+5].Dump()
-		//}
+		fmt.Println("Start Force Quit")
+		//force quit and join 5 nodes
+		for j := 0; j < 5; j++ {
+			nodes[j+i*5+5].ForceQuit()
+			time.Sleep(3 * time.Second)
+			fmt.Println("force quit node ", j+i*5+5)
+		}
+		fmt.Println("Force Quit Done")
+		time.Sleep(10 * time.Second)
+		for j := 0; j < 5; j++ {
+			nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j+i*5+5+1000))
+			nodes[j+i*5+5].Run()
+			if !nodes[j+i*5+5].Join(localAddress + ":" + strconv.Itoa(1000+i*5)) {
+				log.Fatal("join failed")
+			}
+			fmt.Println("port ", j+i*5+5, " joined at ", 1000+i*5)
+			time.Sleep(3 * time.Second)
+		}
+		for j := 0; j < 5; j++ {
+			nodes[j+i*5+5].Dump()
+		}
 
 		fmt.Println("Round ", i, " start quit")
 		//quit 5 nodes

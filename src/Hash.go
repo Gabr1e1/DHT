@@ -2,15 +2,14 @@ package DHT
 
 import (
 	"crypto/sha1"
+	"math/big"
 )
 
-func GetHash(k string) int {
+func GetHash(k string) *big.Int {
 	h := sha1.New()
 	h.Write([]byte(k))
-	hRes := h.Sum(nil)[0:4]
-	var hash int = 0
-	for i := range hRes {
-		hash = hash*256 + int(hRes[i])
-	}
-	return hash % 4294967296
+	hRes := h.Sum(nil)
+	var hash big.Int
+	hash.SetBytes(hRes)
+	return &hash
 }

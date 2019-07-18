@@ -3,16 +3,19 @@ package DHT
 import (
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 	"net/rpc"
 )
 
 // create a dht-net with this node as start node
 func (n *Node) Create(addr string) {
-	n.Info = InfoType{addr, GetHash(addr)}
+	var t = GetHash(addr)
+	n.Info = InfoType{addr, t}
+	n.Predecessor = InfoType{"", big.NewInt(0)}
 	fmt.Println("INFO: ", n.Info)
 	if len(n.data) == 0 {
-		n.data = make(map[int]KVPair)
+		n.data = make(map[string]KVPair)
 	}
 	for i := 0; i < M; i++ {
 		n.Finger[i], n.Successors[i] = n.Info, n.Info
@@ -61,7 +64,7 @@ func (n *Node) Ping(addr string) bool {
 		return n.status > 0
 	}
 
-	client, err := n.Connect(InfoType{addr, 0})
+	client, err := n.Connect(InfoType{addr, big.NewInt(0)})
 	if err != nil {
 		//fmt.Println("Ping Failed", addr)
 		return false
@@ -79,7 +82,8 @@ func (n *Node) Ping(addr string) bool {
 }
 
 //1: F
-func (n *Node) GetStatus(_ *int, reply *int) error {
+func (n *Node) GetStatus(_ *int,
+	reply *int) error {
 	*reply = n.status
 	return nil
 }
@@ -98,7 +102,7 @@ func (n *Node) Dump() {
 
 //Join n itself to the network which addr belongs
 func (n *Node) Join(addr string) bool {
-	client, err := n.Connect(InfoType{addr, 0})
+	client, err := n.Connect(InfoType{addr, big.NewInt(0)})
 	if err != nil {
 		fmt.Println("Can't Connect while attempting to join: ", err)
 		return false
@@ -111,7 +115,7 @@ func (n *Node) Join(addr string) bool {
 	}
 
 	n.mux.Lock()
-	err = client.Call("Node.FindSuccessor", &n.Info.NodeNum, &n.Successors[0])
+	err = client.Call("Node.FindSuccessor", n.Info.NodeNum, &n.Successors[0])
 	n.Finger[0] = n.Successors[0]
 	n.mux.Unlock()
 	_ = client.Close()

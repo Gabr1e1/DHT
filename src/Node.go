@@ -1,20 +1,19 @@
-//TODO: MAXIMUM ROUTING NUMBER
+//TODO: LINKED LIST
 
 package DHT
 
 import (
 	"fmt"
 	"log"
-	"math"
-	"math/rand"
+	"math/big"
 	"net"
 	"net/rpc"
 	"sync"
 	"time"
 )
 
-const M = 32
-const RoutingLimit = 1000
+const M = 160
+const RoutingLimit = 32
 
 type KVPair struct {
 	Key   string
@@ -23,7 +22,7 @@ type KVPair struct {
 
 type InfoType struct {
 	IPAddr  string
-	NodeNum int
+	NodeNum *big.Int
 }
 
 type Node struct {
@@ -31,7 +30,7 @@ type Node struct {
 	Successors  [M]InfoType
 	Predecessor InfoType
 	Info        InfoType
-	data        map[int]KVPair
+	data        map[string]KVPair
 	server      *rpc.Server
 	mux         sync.Mutex
 	status      int
@@ -40,11 +39,12 @@ type Node struct {
 }
 
 //check whether c in [a,b)
-func checkBetween(a, b, mid int) bool {
-	if a >= b {
-		return checkBetween(a, int(math.Pow(2, M)), mid) || checkBetween(0, b, mid)
+func checkBetween(a, b, mid *big.Int) bool {
+	if a.Cmp(b) >= 0 {
+		tmp := big.NewInt(0)
+		return checkBetween(a, tmp.Exp(big.NewInt(2), big.NewInt(M), nil), mid) || checkBetween(big.NewInt(0), b, mid)
 	}
-	return mid >= a && mid < b
+	return mid.Cmp(a) >= 0 && mid.Cmp(b) < 0
 }
 
 //the successor list might not be effective due to force quitting nodes
@@ -95,15 +95,15 @@ func (n *Node) ModifyPredecessor(pred *InfoType, reply *int) error {
 	return nil
 }
 
-func (n *Node) GetPredecessor(tmp *int, reply *InfoType) error {
-	if n.Predecessor.NodeNum != 0 && !n.Ping(n.Predecessor.IPAddr) {
+func (n *Node) GetPredecessor(_ *int, reply *InfoType) error {
+	if n.Predecessor.NodeNum.Cmp(big.NewInt(0)) == 0 && !n.Ping(n.Predecessor.IPAddr) {
 		n.Predecessor = InfoType{}
 	}
 	*reply = n.Predecessor
 	return nil
 }
 
-func (n *Node) findPredecessor(id int) InfoType {
+func (n *Node) findPredecessor(id *big.Int) InfoType {
 	//fmt.Println("Finding Predecessor")
 	var cnt = 0
 
@@ -113,13 +113,12 @@ func (n *Node) findPredecessor(id int) InfoType {
 	err := n.FindFirstSuccessorAlive(&tmp, &successor)
 	if err != nil {
 		log.Fatal("Can't find predecessor")
-		return InfoType{}
 	}
 
-	for !checkBetween(p.NodeNum+1, successor.NodeNum, id) && cnt <= RoutingLimit {
+	for (!checkBetween(big.NewInt(1).Add(p.NodeNum, big.NewInt(1)), successor.NodeNum, id)) && cnt <= RoutingLimit {
 		cnt++
 		var err error
-		if p != n.Info {
+		if p.NodeNum.Cmp(n.Info.NodeNum) != 0 {
 			client, _ := n.Connect(p)
 			err = client.Call("Node.ClosestPrecedingNode", &id, &p)
 			if err != nil {
@@ -128,7 +127,7 @@ func (n *Node) findPredecessor(id int) InfoType {
 
 			_ = client.Close()
 		} else {
-			err = n.ClosestPrecedingNode(&id, &p)
+			err = n.ClosestPrecedingNode(id, &p)
 			//fmt.Println(n.Info, p, id)
 		}
 		if err != nil {
@@ -140,15 +139,15 @@ func (n *Node) findPredecessor(id int) InfoType {
 		_ = client.Close()
 
 	}
-	//fmt.Printf("Found Predecessor using %d jumps\n", cnt)
-	//fmt.Println("Found predecessor", p)
+	fmt.Printf("Found Predecessor using %d jumps\n", cnt)
+	fmt.Println(n.Info, " Found predecessor", p)
 	return p
 }
 
-func (n *Node) ClosestPrecedingNode(id *int, reply *InfoType) error {
+func (n *Node) ClosestPrecedingNode(id *big.Int, reply *InfoType) error {
 	//first check finger table
 	for i := M - 1; i >= 0; i-- {
-		if checkBetween(n.Info.NodeNum+1, *id, n.Finger[i].NodeNum) {
+		if checkBetween(big.NewInt(1).Add(n.Info.NodeNum, big.NewInt(1)), id, n.Finger[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Finger[i].IPAddr) {
 				n.Finger[i] = InfoType{}
@@ -161,7 +160,7 @@ func (n *Node) ClosestPrecedingNode(id *int, reply *InfoType) error {
 
 	//then check successor list
 	for i := M - 1; i >= 0; i-- {
-		if checkBetween(n.Info.NodeNum+1, *id, n.Successors[i].NodeNum) {
+		if checkBetween(big.NewInt(1).Add(n.Info.NodeNum, big.NewInt(1)), id, n.Successors[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Successors[i].IPAddr) {
 				n.Successors[i] = InfoType{}
@@ -176,8 +175,8 @@ func (n *Node) ClosestPrecedingNode(id *int, reply *InfoType) error {
 	return nil
 }
 
-func (n *Node) FindSuccessor(id *int, reply *InfoType) error {
-	t := n.findPredecessor(*id)
+func (n *Node) FindSuccessor(id *big.Int, reply *InfoType) error {
+	t := n.findPredecessor(id)
 	client, err := n.Connect(t)
 	if err != nil {
 		return err
@@ -196,17 +195,17 @@ func (n *Node) FindSuccessor(id *int, reply *InfoType) error {
 
 func (n *Node) Get_(k *string, reply *string) error {
 	id := GetHash(*k)
-	if val, ok := n.data[id]; ok {
+	if val, ok := n.data[id.String()]; ok {
 		*reply = val.Value
 		return nil
 	}
 	var p InfoType
-	err := n.FindSuccessor(&id, &p)
+	err := n.FindSuccessor(id, &p)
 	if err != nil {
 		return err
 	}
 
-	if p != n.Info {
+	if p.NodeNum.Cmp(n.Info.NodeNum) != 0 {
 		client, err := n.Connect(p)
 		if err != nil {
 			return err
@@ -227,13 +226,13 @@ func (n *Node) Get_(k *string, reply *string) error {
 func (n *Node) Put_(kv *KVPair, reply *bool) error {
 	id := GetHash(kv.Key)
 	var p InfoType
-	err := n.FindSuccessor(&id, &p)
+	err := n.FindSuccessor(id, &p)
 	if err != nil {
 		return err
 	}
 
-	if p == n.Info {
-		n.data[id] = KVPair{kv.Key, kv.Value}
+	if p.NodeNum.Cmp(n.Info.NodeNum) == 0 {
+		n.data[id.String()] = KVPair{kv.Key, kv.Value}
 		*reply = true
 	} else {
 		client, err := n.Connect(p)
@@ -254,15 +253,15 @@ func (n *Node) Put_(kv *KVPair, reply *bool) error {
 func (n *Node) Del_(k *string, reply *bool) error {
 	id := GetHash(*k)
 	var p InfoType
-	err := n.FindSuccessor(&id, &p)
+	err := n.FindSuccessor(id, &p)
 	if err != nil {
 		return err
 	}
 
-	if p == n.Info {
-		_, ok := n.data[id]
+	if p.NodeNum.Cmp(n.Info.NodeNum) == 0 {
+		_, ok := n.data[id.String()]
 		if ok {
-			delete(n.data, id)
+			delete(n.data, id.String())
 		}
 		*reply = ok
 	} else {
@@ -287,7 +286,8 @@ func (n *Node) GetNodeInfo(_ *int, reply *InfoType) error {
 }
 
 func (n *Node) DirectPut(KV *KVPair, reply *int) error {
-	n.data[GetHash(KV.Key)] = *KV
+	var t = GetHash(KV.Key)
+	n.data[t.String()] = *KV
 	return nil
 }
 
@@ -303,7 +303,9 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 
 	n.mux.Lock()
 	for hashKey, KV := range n.data {
-		if checkBetween(n.Info.NodeNum, replace.NodeNum, hashKey) {
+		var t big.Int
+		t.SetString(hashKey, 10)
+		if checkBetween(n.Info.NodeNum, replace.NodeNum, &t) {
 			var tmp int
 			err := client.Call("Node.DirectPut", &KV, &tmp)
 			if err != nil {
@@ -349,7 +351,7 @@ func (n *Node) stabilize() {
 			break
 		}
 		var tmp int
-		var x InfoType
+		var x = InfoType{"", big.NewInt(0)}
 
 		n.mux.Lock()
 		err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
@@ -371,9 +373,9 @@ func (n *Node) stabilize() {
 		//fmt.Println(n.Info.NodeNum, n.Successors[0].NodeNum, x.NodeNum)
 
 		n.mux.Lock()
-		if x.NodeNum != 0 && checkBetween(n.Info.NodeNum+1, n.Successors[0].NodeNum, x.NodeNum) {
+		if x.NodeNum.Cmp(big.NewInt(0)) != 0 && checkBetween(big.NewInt(1).Add(n.Info.NodeNum, big.NewInt(1)), n.Successors[0].NodeNum, x.NodeNum) {
 			n.Successors[0], n.Finger[0] = x, x
-			fmt.Printf("STABILIZE: %d's successor is %d\n", n.Info.NodeNum, x.NodeNum)
+			fmt.Printf("STABILIZE: %s's successor is %s\n", n.Info.NodeNum, x.NodeNum)
 		}
 		n.mux.Unlock()
 		_ = client.Close()
@@ -400,9 +402,9 @@ func (n *Node) stabilize() {
 //n(self) is notified of the existence of another node which is a candidate for Predecessor
 func (n *Node) Notify(other *InfoType, reply *int) error {
 	n.mux.Lock()
-	if n.Predecessor.IPAddr == "" || checkBetween(n.Predecessor.NodeNum+1, n.Info.NodeNum, other.NodeNum) {
+	if n.Predecessor.IPAddr == "" || checkBetween(big.NewInt(1).Add(n.Predecessor.NodeNum, big.NewInt(1)), n.Info.NodeNum, other.NodeNum) {
 		n.Predecessor = *other
-		fmt.Printf("NOTIFY: %d's predecessor is %d\n", n.Info.NodeNum, other.NodeNum)
+		fmt.Printf("NOTIFY: %s's predecessor is %s\n", n.Info.NodeNum, other.NodeNum)
 	}
 	n.mux.Unlock()
 	*reply = 0
@@ -410,17 +412,17 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 }
 
 func (n *Node) fixFingers() {
-	for {
-		if n.status == 0 {
-			break
-		}
-		i := rand.Intn(M-1) + 1 //random numbers in [1, M - 1]
-		id := n.Info.NodeNum + int(math.Pow(2, float64(i)))
-		id = id % (int(math.Pow(2, float64(M))))
-		err := n.FindSuccessor(&id, &n.Finger[i])
-		if err != nil {
-			continue
-		}
-		time.Sleep(666 * time.Millisecond)
-	}
+	//for {
+	//	if n.status == 0 {
+	//		break
+	//	}
+	//	i := rand.Intn(M-1) + 1 //random numbers in [1, M - 1]
+	//	var id big.Int
+	//	id.Add(n.Info.NodeNum, id.Exp(big.NewInt(2), big.NewInt(int64(i)), nil))
+	//	err := n.FindSuccessor(&id, &n.Finger[i])
+	//	if err != nil {
+	//		continue
+	//	}
+	//	time.Sleep(666 * time.Millisecond)
+	//}
 }
