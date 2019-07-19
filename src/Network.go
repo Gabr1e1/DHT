@@ -27,7 +27,7 @@ func (n *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 				c <- client
 				break
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 

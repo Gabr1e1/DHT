@@ -44,29 +44,29 @@ func main() {
 	localAddress := DHT.GetLocalAddress()
 	fmt.Println("local address: " + localAddress)
 
-	port := 1000
-	nodes[0].Create(localAddress + ":1000")
+	port := 2000
+	nodes[0].Create(localAddress + ":2000")
 	nodes[0].Run()
 
 	kvMap := make(map[string]string)
 	var nodecnt = 1
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 5; i++ {
 		fmt.Println("Round ", i)
 		//join 30 nodes
-		for j := 0; j < 10; j++ {
+		for j := 0; j < 30; j++ {
 			var index = i*30 + j + 1
 			port++
 			nodes[index].Create(localAddress + ":" + strconv.Itoa(port))
 			nodes[index].Run()
-			if !nodes[index].Join(localAddress + ":" + strconv.Itoa(1000+5*i)) {
+			if !nodes[index].Join(localAddress + ":" + strconv.Itoa(2000+5*i)) {
 				log.Fatal("join failed")
 			}
 			time.Sleep(1 * time.Second)
-			fmt.Println("port ", port, " joined at 1000")
+			fmt.Println("port ", port, " joined at 2000")
 		}
-		nodecnt += 10
+		nodecnt += 30
 		time.Sleep(10 * time.Second)
-		for j := i * 5; j <= i*30+10; j++ {
+		for j := i * 5; j <= i*30+30; j++ {
 			nodes[j].Dump()
 		}
 
@@ -118,12 +118,12 @@ func main() {
 		fmt.Println("Force Quit Done")
 		time.Sleep(10 * time.Second)
 		for j := 0; j < 5; j++ {
-			nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j+i*5+5+1000))
+			nodes[j+i*5+5].Create(localAddress + ":" + strconv.Itoa(j+i*5+5+2000))
 			nodes[j+i*5+5].Run()
-			if !nodes[j+i*5+5].Join(localAddress + ":" + strconv.Itoa(1000+i*5)) {
+			if !nodes[j+i*5+5].Join(localAddress + ":" + strconv.Itoa(2000+i*5)) {
 				log.Fatal("join failed")
 			}
-			fmt.Println("port ", j+i*5+5, " joined at ", 1000+i*5)
+			fmt.Println("port ", j+i*5+5, " joined at ", 2000+i*5)
 			time.Sleep(3 * time.Second)
 		}
 		for j := 0; j < 5; j++ {

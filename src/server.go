@@ -66,7 +66,7 @@ func (n *Node) Ping(addr string) bool {
 
 	client, err := n.Connect(InfoType{addr, big.NewInt(0)})
 	if err != nil {
-		//fmt.Println("Ping Failed", addr)
+		fmt.Println("Ping Failed", addr)
 		return false
 	}
 
@@ -81,7 +81,6 @@ func (n *Node) Ping(addr string) bool {
 	return success > 0
 }
 
-//1: F
 func (n *Node) GetStatus(_ *int,
 	reply *int) error {
 	*reply = n.status
@@ -115,7 +114,7 @@ func (n *Node) Join(addr string) bool {
 	}
 	n.mux.Lock()
 	err = client.Call("Node.FindSuccessor", n.Info.NodeNum, &n.Successors[0])
-	n.Finger[0] = n.Successors[0]
+	n.Finger[0] = copyInfo(n.Successors[0])
 	n.mux.Unlock()
 	_ = client.Close()
 
