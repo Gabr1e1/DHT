@@ -6,7 +6,10 @@ import (
 	"math/big"
 	"net"
 	"net/rpc"
+	"strconv"
 )
+
+const duplicateNum = 2
 
 // create a dht-net with this node as start node
 func (n *Node) Create(addr string) {
@@ -39,20 +42,35 @@ func (n *Node) Run() {
 
 func (n *Node) Get(k string) (bool, string) {
 	var val string
-	_ = n.Get_(&k, &val)
+	for i := 0; i < duplicateNum; i++ {
+		var newk = k + "?" + strconv.Itoa(i)
+		err := n.Get_(&newk, &val)
+		if err != nil {
+			return val != "", val
+		}
+	}
 	return val != "", val
 }
 
 func (n *Node) Put(k string, v string) bool {
 	var flg bool
-	_ = n.Put_(&KVPair{k, v}, &flg)
-	return flg
+	for i := 0; i < duplicateNum; i++ {
+		var newk = k + "?" + strconv.Itoa(i)
+		_ = n.Put_(&KVPair{newk, v}, &flg)
+		if !flg {
+			return false
+		}
+	}
+	return true
 }
 
 func (n *Node) Del(k string) bool {
 	var flg bool
-	_ = n.Del_(&k, &flg)
-	return flg
+	for i := 0; i < duplicateNum; i++ {
+		var newk = k + "?" + strconv.Itoa(i)
+		_ = n.Del_(&newk, &flg)
+	}
+	return true
 }
 
 func (n *Node) Ping(addr string) bool {
