@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-const duplicateNum = 2
+const duplicateNum = 1
 
 // create a dht-net with this node as start node
 func (n *Node) Create(addr string) {

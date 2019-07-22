@@ -10,7 +10,7 @@ import (
 
 const maxTry = 3
 
-func (n *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
+func (this *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 	//fmt.Println("Calling: ", otherNode)
 	if otherNode.IPAddr == "" {
 		return nil, errors.New("invalid address")

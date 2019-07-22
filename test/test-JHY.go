@@ -50,7 +50,7 @@ func main() {
 
 	kvMap := make(map[string]string)
 	var nodecnt = 1
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 5; i++ {
 		fmt.Println("Round ", i)
 		//join 30 nodes
 		for j := 0; j < 30; j++ {
