@@ -6,10 +6,7 @@ import (
 	"strings"
 )
 
-func parsePeer(value string) ([]PeerInfo, int) {
-	pieceNum, _ := strconv.Atoi(value[0:strings.Index(value, "?")])
-	value = value[strings.Index(value, "?")+1:]
-
+func parsePeer(value string) []PeerInfo {
 	var ret []PeerInfo
 	b := []byte(value)
 	for i := 0; i < len(b); i += 6 {
@@ -21,7 +18,7 @@ func parsePeer(value string) ([]PeerInfo, int) {
 		cur += strconv.Itoa(int(int(b[i+4])*256 + int(b[i+5])))
 		ret = append(ret, PeerInfo{cur})
 	}
-	return ret, pieceNum
+	return ret
 }
 
 func encodePeer(addr string) string {

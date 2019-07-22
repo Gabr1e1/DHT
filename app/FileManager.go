@@ -21,6 +21,16 @@ func GetFileHash(file *os.File) *big.Int {
 	return &hash
 }
 
+func GetPieceHash(file *os.File, pieceNum int) *big.Int {
+	t := readFile(file, pieceNum)
+	h := sha1.New()
+	h.Write(t)
+	hRes := h.Sum(nil)
+	var hash big.Int
+	hash.SetBytes(hRes)
+	return &hash
+}
+
 func readFile(file *os.File, pieceNum int) []byte {
 	_, err := file.Seek(int64(pieceNum*pieceSize), 0)
 	if err != nil {
