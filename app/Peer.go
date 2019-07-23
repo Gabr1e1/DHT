@@ -6,10 +6,12 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"math/rand"
 	"net"
 	"net/rpc"
 	"os"
 	"strconv"
+	"sync"
 )
 
 const maxPeerNum = 100
@@ -20,23 +22,22 @@ type PeerInfo struct {
 }
 
 type PieceInfo struct {
-	have   bool
-	hash   *big.Int
-	length int
-	isLast bool
+	Have   bool
+	Hash   *big.Int
+	Length int
+	IsLast bool
 }
 
 type Peer struct {
 	Node           *DHT.Node
-	availablePeers [maxPeerNum]PeerInfo
-
-	//TODO: change to []PieceInfo
-	pieces         [maxPieceNum]PieceInfo
-
-	totalPieces int
-	file        *os.File
-	server      *rpc.Server
-	Self        PeerInfo
+	availablePeers []PeerInfo
+	Pieces         []PieceInfo
+	totalPieces    int
+	file           *os.File
+	server         *rpc.Server
+	Self           PeerInfo
+	wg             *sync.WaitGroup
+	fileLock       sync.Mutex
 }
 
 func decToHex(x *big.Int) string {
@@ -50,8 +51,8 @@ func (this *Peer) Publish(fileName string, port1 int, port2 int, other string) s
 		log.Fatal("Can't open file: ", err)
 	}
 
-	var hash = decToHex(GetFileHash(this.file))
-	var link = fmt.Sprint("magnet:?hash=" + hash + "?fn=" + fileName)
+	var hash = decToHex(this.GetFileHash())
+	var link = fmt.Sprint("magnet:?Hash=" + hash + "?fn=" + fileName)
 	fmt.Println(link)
 	this.Self = PeerInfo{DHT.GetLocalAddress() + ":" + strconv.Itoa(port2)}
 
@@ -69,17 +70,19 @@ func (this *Peer) Publish(fileName string, port1 int, port2 int, other string) s
 	this.totalPieces = int(math.Ceil(float64(t.Size()) / pieceSize))
 	tmp := t.Size()
 	for i := 0; i < this.totalPieces; i++ {
-		this.pieces[i].have = true
-		this.pieces[i].hash = GetPieceHash(this.file, i)
+		var cur PieceInfo
+		cur.Have = true
+		cur.Hash = this.GetPieceHash(i)
 		if tmp >= pieceSize {
-			this.pieces[i].length = pieceSize
+			cur.Length = pieceSize
 		} else {
-			this.pieces[i].length = int(tmp)
+			cur.Length = int(tmp)
 		}
 		tmp -= pieceSize
-		this.pieces[i].isLast = false
+		cur.IsLast = false
+		this.Pieces = append(this.Pieces, cur)
 	}
-	this.pieces[this.totalPieces-1].isLast = true
+	this.Pieces[this.totalPieces-1].IsLast = true
 
 	this.Node.Run()
 	this.Node.Put(hash, encodePeer(this.Self.addr))
@@ -99,7 +102,8 @@ func (this *Peer) startServer() {
 	go this.server.Accept(listener)
 }
 
-func (this *Peer) Run(port1 int, port2 int, other string) {
+func (this *Peer) Run(port1 int, port2 int, other string, wg *sync.WaitGroup) {
+	this.wg = wg
 	if this.Node == nil {
 		this.Node = new(DHT.Node)
 		this.Node.Create(DHT.GetLocalAddress() + ":" + strconv.Itoa(port1))
@@ -113,8 +117,8 @@ func (this *Peer) Run(port1 int, port2 int, other string) {
 }
 
 func (this *Peer) nextToDownload() int {
-	for i := 0; i < this.totalPieces; i++ {
-		if this.pieces[i].have == false {
+	for i := 0; i < len(this.Pieces); i++ {
+		if this.Pieces[i].Have == false {
 			/*
 				TODO: choose rarest peer
 			*/
@@ -124,8 +128,8 @@ func (this *Peer) nextToDownload() int {
 	return 0
 }
 
-func (this *Peer) CheckPiece(pieceNum *int, reply *PieceInfo) error {
-	*reply = this.pieces[*pieceNum]
+func (this *Peer) GetPiece(pieceNum *int, reply *PieceInfo) error {
+	*reply = this.Pieces[*pieceNum]
 	return nil
 }
 
@@ -133,14 +137,14 @@ func (this *Peer) getBestPeer(curPeer []PeerInfo) PeerInfo {
 	/*
 		TODO: use tit-tat strategy
 	*/
-	return curPeer[0]
+	return curPeer[rand.Intn(len(curPeer))]
 }
 
 func (this *Peer) download(pieceNum int) {
 	/* Decide from which peer to download */
 	var curPeer []PeerInfo
-	for i := 0; i < maxPeerNum; i++ {
-		if this.availablePeers[i].addr == "" {
+	for i := 0; i < len(this.availablePeers); i++ {
+		if this.availablePeers[i].addr == this.Self.addr {
 			continue
 		}
 		client, err := this.Connect(this.availablePeers[i])
@@ -153,7 +157,7 @@ func (this *Peer) download(pieceNum int) {
 		if err != nil {
 			log.Fatal("Download Failed: ", err)
 		}
-		if reply.have {
+		if reply.Have {
 			curPeer = append(curPeer, this.availablePeers[i])
 		}
 	}
@@ -164,21 +168,26 @@ func (this *Peer) download(pieceNum int) {
 		log.Fatal("Download Failed: ", err)
 	}
 	req := Request{this.Self.addr, pieceNum}
+	fmt.Println(this.Self.addr, " Downloading piece", pieceNum, "from ", p)
 	var data []byte
 	err = client.Call("Peer.UploadData", &req, &data)
 	client.Close()
 	if err != nil {
 		log.Fatal("Download Failed: ", err)
 	}
-	err = writeToFile(this.file, data)
+
+	err = this.writeToFile(data, pieceNum)
+
 	if err != nil {
 		log.Fatal("Can't write to file: ", err)
 	}
 	//verify content
-	if GetPieceHash(this.file, pieceNum).Cmp(this.pieces[pieceNum].hash) == 0 {
-		this.pieces[pieceNum].have = true
+	if this.GetPieceHash(pieceNum).Cmp(this.Pieces[pieceNum].Hash) == 0 {
+		this.Pieces[pieceNum].Have = true
+		this.totalPieces++
 	} else {
-		log.Fatal("Download", pieceNum, "failed")
+		fmt.Println(this.GetPieceHash(pieceNum).String(), this.Pieces[pieceNum].Hash.String())
+		log.Fatal("Download ", pieceNum, "failed, hash don't match")
 	}
 }
 
@@ -197,31 +206,36 @@ func (this *Peer) getTorrentInfo() {
 				continue
 			}
 			_ = client.Close()
-			if reply.have == true {
-				this.pieces[i] = reply
-				this.pieces[i].have = false
+			if reply.Have == true {
+				this.Pieces = append(this.Pieces, reply)
+				this.Pieces[i].Have = false
 				break
 			}
 		}
-		if this.pieces[i].isLast {
-			this.totalPieces = i
+		if this.Pieces[i].IsLast {
 			break
 		}
 	}
 }
 
-func (this *Peer) Download(link string) bool {
+func (this *Peer) Download(link string, name string) bool {
+	defer this.wg.Done()
+
 	ok, hash, fileName := parseMagnetLink(link)
+	if name != "" {
+		fileName = name
+	}
 	fileName = fileName + ".download"
 	if !ok {
 		log.Fatal("Not a valid link")
 	}
 	success, value := this.Node.Get(hash)
 	if !success {
-		log.Fatal("Not a valid link")
+		log.Fatal(this.Self, " Can't get value from dht")
 	}
 
 	/* Get Node Info (torrent.info) */
+	this.availablePeers = parsePeer(value)
 	this.getTorrentInfo()
 
 	/* allocate file */
@@ -229,28 +243,31 @@ func (this *Peer) Download(link string) bool {
 	if this.file == nil {
 		log.Fatal("Can't create file")
 	}
+	t := make([]byte, pieceSize)
 	for i := 0; i < this.totalPieces; i++ {
-		_, err := this.file.Write(make([]byte, pieceSize))
+		_, err := this.file.Write(t)
 		if err != nil {
 			log.Fatal("Can't allocate file")
 		}
 	}
+	_ = this.file.Sync()
 
 	/* Start download */
-	/*
-		TODO: Append self to the list
-	*/
-	copy(this.availablePeers[:], parsePeer(value))
-
-	for len(this.pieces) != this.totalPieces {
+	this.Node.AppendTo(hash, encodePeer(this.Self.addr))
+	for len(this.Pieces) != this.totalPieces {
 		cur := this.nextToDownload()
 		this.download(cur)
 	}
 	this.stripFile()
 
 	/* Verify the entire content */
-	curHash := GetFileHash(this.file)
-	if curHash.String() != hash {
+	this.fileLock.Lock()
+	_ = this.file.Close()
+	this.file, _ = os.Open(fileName)
+	this.fileLock.Unlock()
+	curHash := this.GetFileHash()
+	if decToHex(curHash) != hash {
+		fmt.Println("sha1 of downloaded file is", decToHex(curHash))
 		log.Fatal("Download Failed")
 		return false
 	}

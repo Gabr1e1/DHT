@@ -46,7 +46,7 @@ func parseMagnetLink(link string) (bool, string, string) {
 		if link[0:i] != "magnet:" {
 			return false, "", ""
 		}
-		if link[i+1:i+6] != "hash=" {
+		if link[i+1:i+6] != "Hash=" {
 			return false, "", ""
 		}
 		j := strings.Index(link[i+1:], "?") + i + 1

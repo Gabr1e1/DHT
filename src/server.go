@@ -45,7 +45,7 @@ func (n *Node) Get(k string) (bool, string) {
 	for i := 0; i < duplicateNum; i++ {
 		var newk = k + "?" + strconv.Itoa(i)
 		err := n.Get_(&newk, &val)
-		if err != nil {
+		if err == nil {
 			return val != "", val
 		}
 	}
@@ -71,6 +71,14 @@ func (n *Node) Del(k string) bool {
 		_ = n.Del_(&newk, &flg)
 	}
 	return true
+}
+
+//TODO: Append Directly
+func (n *Node) AppendTo(k string, v string) {
+	ok, t := n.Get(k)
+	if ok {
+		n.Put(k, t+v)
+	}
 }
 
 func (n *Node) Ping(addr string) bool {

@@ -52,6 +52,7 @@ func (this *Peer) UploadData(req *Request, reply *[]byte) error {
 	if choke {
 		return errors.New("NotGivingYouDataBitch")
 	}
-	*reply = readFile(this.file, req.PieceNum)
+	//fmt.Println(req.Addr, "trying to read", this.Self.addr, req.PieceNum)
+	*reply = this.readFile(req.PieceNum)
 	return nil
 }

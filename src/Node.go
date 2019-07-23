@@ -293,6 +293,7 @@ func (n *Node) DirectPut(KV *KVPair, reply *int) error {
 }
 
 func (n *Node) TransferData(replace *InfoType, reply *int) error {
+	//fmt.Println("Transfer Data", n.Info.IPAddr)
 	if replace.IPAddr == "" {
 		return nil
 	}

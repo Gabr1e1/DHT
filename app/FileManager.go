@@ -5,24 +5,25 @@ import (
 	"io"
 	"log"
 	"math/big"
-	"os"
 )
 
 const pieceSize = 128 * 1024
 
-func GetFileHash(file *os.File) *big.Int {
+func (this *Peer) GetFileHash() *big.Int {
+	this.fileLock.Lock()
 	h := sha1.New()
-	if _, err := io.Copy(h, file); err != nil {
-		log.Fatal("Can't hash file")
+	if _, err := io.Copy(h, this.file); err != nil {
+		log.Fatal("Can't Hash file")
 	}
+	this.fileLock.Unlock()
 	hRes := h.Sum(nil)
 	var hash big.Int
 	hash.SetBytes(hRes)
 	return &hash
 }
 
-func GetPieceHash(file *os.File, pieceNum int) *big.Int {
-	t := readFile(file, pieceNum)
+func (this *Peer) GetPieceHash(pieceNum int) *big.Int {
+	t := this.readFile(pieceNum)
 	h := sha1.New()
 	h.Write(t)
 	hRes := h.Sum(nil)
@@ -31,34 +32,41 @@ func GetPieceHash(file *os.File, pieceNum int) *big.Int {
 	return &hash
 }
 
-func readFile(file *os.File, pieceNum int) []byte {
-	_, err := file.Seek(int64(pieceNum*pieceSize), 0)
+func (this *Peer) readFile(pieceNum int) []byte {
+	this.fileLock.Lock()
+	_, err := this.file.Seek(int64(pieceNum*pieceSize), 0)
 	if err != nil {
-		log.Fatal("Can't read file")
+		log.Fatal("Can't read file1: ", this.file.Name(), " ", pieceNum, " ", err)
 	}
 	ret := make([]byte, pieceSize)
-	_, err = file.Read(ret)
+	_, err = this.file.Read(ret)
 	if err != nil {
-		log.Fatal("Can't read file")
+		log.Fatal("Can't read file2: ", this.file.Name(), " ", pieceNum, " ", err)
 	}
+	this.fileLock.Unlock()
 	return ret
 }
 
-func writeToFile(file *os.File, data []byte) error {
-	_, err := file.Write(data)
-	_ = file.Sync()
+func (this *Peer) writeToFile(data []byte, pieceNum int) error {
+	this.fileLock.Lock()
+	_, err := this.file.Seek(int64(pieceNum*pieceSize), 0)
+	_, err = this.file.Write(data)
+	_ = this.file.Sync()
+	this.fileLock.Unlock()
 	return err
 }
 
 func (this *Peer) stripFile() {
 	var t []byte
 	var trunc = 0
-	t = readFile(this.file, this.totalPieces)
+	t = this.readFile(this.totalPieces - 1)
 	for i := len(t) - 1; i >= 0; i-- {
 		if t[i] != 0 {
 			trunc = i
 			break
 		}
 	}
-	_ = this.file.Truncate(int64((this.totalPieces-1)*pieceSize + trunc))
+	this.fileLock.Lock()
+	_ = this.file.Truncate(int64((this.totalPieces-1)*pieceSize + trunc + 1))
+	this.fileLock.Unlock()
 }
