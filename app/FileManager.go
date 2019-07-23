@@ -50,23 +50,8 @@ func (this *Peer) readFile(pieceNum int) []byte {
 func (this *Peer) writeToFile(data []byte, pieceNum int) error {
 	this.fileLock.Lock()
 	_, err := this.file.Seek(int64(pieceNum*pieceSize), 0)
-	_, err = this.file.Write(data)
+	_, err = this.file.Write(data[:this.Pieces[pieceNum].Length])
 	_ = this.file.Sync()
 	this.fileLock.Unlock()
 	return err
-}
-
-func (this *Peer) stripFile() {
-	var t []byte
-	var trunc = 0
-	t = this.readFile(this.totalPieces - 1)
-	for i := len(t) - 1; i >= 0; i-- {
-		if t[i] != 0 {
-			trunc = i
-			break
-		}
-	}
-	this.fileLock.Lock()
-	_ = this.file.Truncate(int64((this.totalPieces-1)*pieceSize + trunc + 1))
-	this.fileLock.Unlock()
 }

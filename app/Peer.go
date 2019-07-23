@@ -116,16 +116,42 @@ func (this *Peer) Run(port1 int, port2 int, other string, wg *sync.WaitGroup) {
 	}
 }
 
-func (this *Peer) nextToDownload() int {
-	for i := 0; i < len(this.Pieces); i++ {
-		if this.Pieces[i].Have == false {
-			/*
-				TODO: choose rarest peer
-			*/
-			return i
+func (this *Peer) calcPiece(pieceNum int) int {
+	return 1
+
+	cnt := 0
+	for _, p := range this.availablePeers {
+		client, err := this.Connect(p)
+		if err != nil {
+			continue
+		}
+		var tmp bool
+		err = client.Call("Peer.CheckPiece", &pieceNum, &tmp)
+		_ = client.Close()
+		if err != nil {
+			continue
+		}
+		if tmp {
+			cnt++
 		}
 	}
-	return 0
+	return cnt
+}
+
+func (this *Peer) nextToDownload() int {
+	min := maxPeerNum + 1
+	mini := 0
+	for i := 0; i < len(this.Pieces); i++ {
+		if this.Pieces[i].Have == false {
+			// choose rarest piece
+			k := this.calcPiece(i)
+			if k <= min {
+				min = k
+				mini = i
+			}
+		}
+	}
+	return mini
 }
 
 func (this *Peer) GetPiece(pieceNum *int, reply *PieceInfo) error {
@@ -153,7 +179,7 @@ func (this *Peer) download(pieceNum int) {
 		}
 		var reply PieceInfo
 		err = client.Call("Peer.GetPiece", &pieceNum, &reply)
-		client.Close()
+		_ = client.Close()
 		if err != nil {
 			log.Fatal("Download Failed: ", err)
 		}
@@ -171,7 +197,7 @@ func (this *Peer) download(pieceNum int) {
 	fmt.Println(this.Self.addr, " Downloading piece", pieceNum, "from ", p)
 	var data []byte
 	err = client.Call("Peer.UploadData", &req, &data)
-	client.Close()
+	_ = client.Close()
 	if err != nil {
 		log.Fatal("Download Failed: ", err)
 	}
@@ -202,6 +228,7 @@ func (this *Peer) getTorrentInfo() {
 			}
 			var reply PieceInfo
 			err = client.Call("Peer.GetPiece", &i, &reply)
+			_ = client.Close()
 			if err != nil {
 				continue
 			}
@@ -258,7 +285,6 @@ func (this *Peer) Download(link string, name string) bool {
 		cur := this.nextToDownload()
 		this.download(cur)
 	}
-	this.stripFile()
 
 	/* Verify the entire content */
 	this.fileLock.Lock()
@@ -268,7 +294,7 @@ func (this *Peer) Download(link string, name string) bool {
 	curHash := this.GetFileHash()
 	if decToHex(curHash) != hash {
 		fmt.Println("sha1 of downloaded file is", decToHex(curHash))
-		log.Fatal("Download Failed")
+		log.Fatal(this.file.Name(), " Download Failed")
 		return false
 	}
 	fmt.Println("Download successful")
