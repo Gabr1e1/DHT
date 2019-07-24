@@ -15,8 +15,8 @@ import (
 	"sync"
 )
 
-const maxPeerNum = 100
 const maxPieceNum = 65536
+const maxConcurrentThreads = 10
 
 type PeerInfo struct {
 	addr string
@@ -34,6 +34,7 @@ type Peer struct {
 	availablePeers []PeerInfo
 	Pieces         []PieceInfo
 	order          []int
+	orderLock      sync.Mutex
 	totalPieces    int
 
 	file     *os.File
@@ -70,18 +71,23 @@ func (this *Peer) Publish(fileName string, port1 int, port2 int, other string) s
 		log.Fatal("Can't open file: ", err)
 	}
 
-	this.totalPieces = int(math.Ceil(float64(t.Size()) / pieceSize))
+	//bigger pieceSize for big file
+	if t.Size() > 1024*1024*1024 {
+		pieceSize = 1024 * 1024
+	}
+
+	this.totalPieces = int(math.Ceil(float64(t.Size()) / float64(pieceSize)))
 	tmp := t.Size()
 	for i := 0; i < this.totalPieces; i++ {
 		var cur PieceInfo
 		cur.Have = true
 		cur.Hash = this.GetPieceHash(i)
-		if tmp >= pieceSize {
+		if tmp >= int64(pieceSize) {
 			cur.Length = pieceSize
 		} else {
 			cur.Length = int(tmp)
 		}
-		tmp -= pieceSize
+		tmp -= int64(pieceSize)
 		cur.IsLast = false
 		this.Pieces = append(this.Pieces, cur)
 	}
@@ -120,8 +126,15 @@ func (this *Peer) Run(port1 int, port2 int, other string, wg *sync.WaitGroup) {
 }
 
 func (this *Peer) nextToDownload() int {
+	this.orderLock.Lock()
+	if len(this.order) == 0 {
+		this.orderLock.Unlock()
+		return -1
+	}
+
 	ret := this.order[0]
 	this.order = this.order[1:]
+	this.orderLock.Unlock()
 	return ret
 }
 
@@ -266,10 +279,21 @@ func (this *Peer) Download(link string, name string) bool {
 
 	/* Start download */
 	this.Node.AppendTo(hash, encodePeer(this.Self.addr))
-	for len(this.Pieces) != this.totalPieces {
-		cur := this.nextToDownload()
-		this.download(cur)
+	var wg sync.WaitGroup
+	wg.Add(maxConcurrentThreads)
+	for i := 0; i < maxConcurrentThreads; i++ {
+		go func() {
+			defer wg.Done()
+			for {
+				t := this.nextToDownload()
+				if t == -1 {
+					break
+				}
+				this.download(t)
+			}
+		}()
 	}
+	wg.Wait()
 
 	/* Verify the entire content */
 	this.fileLock.Lock()

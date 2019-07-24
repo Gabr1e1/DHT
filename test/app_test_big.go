@@ -2,6 +2,7 @@ package main
 
 import (
 	"../app"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -15,8 +16,8 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(10)
-	for i := 0; i < 10; i++ {
+	wg.Add(5)
+	for i := 0; i < 5; i++ {
 		var t app.Peer
 		t.Run(port, port+1, seed.Node.Info.IPAddr, &wg)
 		go t.Download(link, "lol"+strconv.Itoa(i)+".exe")
@@ -24,4 +25,5 @@ func main() {
 		port += 2
 	}
 	wg.Wait()
+	fmt.Println(time.Now())
 }

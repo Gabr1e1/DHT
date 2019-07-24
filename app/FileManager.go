@@ -7,7 +7,7 @@ import (
 	"math/big"
 )
 
-const pieceSize = 256 * 1024
+var pieceSize = 256 * 1024
 
 func (this *Peer) GetFileHash() *big.Int {
 	this.fileLock.Lock()
