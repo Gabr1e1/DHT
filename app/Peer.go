@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 )
@@ -32,12 +33,14 @@ type Peer struct {
 	Node           *DHT.Node
 	availablePeers []PeerInfo
 	Pieces         []PieceInfo
+	order          []int
 	totalPieces    int
-	file           *os.File
-	server         *rpc.Server
-	Self           PeerInfo
-	wg             *sync.WaitGroup
-	fileLock       sync.Mutex
+
+	file     *os.File
+	server   *rpc.Server
+	Self     PeerInfo
+	wg       *sync.WaitGroup
+	fileLock sync.Mutex
 }
 
 func decToHex(x *big.Int) string {
@@ -116,42 +119,10 @@ func (this *Peer) Run(port1 int, port2 int, other string, wg *sync.WaitGroup) {
 	}
 }
 
-func (this *Peer) calcPiece(pieceNum int) int {
-	return 1
-
-	cnt := 0
-	for _, p := range this.availablePeers {
-		client, err := this.Connect(p)
-		if err != nil {
-			continue
-		}
-		var tmp bool
-		err = client.Call("Peer.CheckPiece", &pieceNum, &tmp)
-		_ = client.Close()
-		if err != nil {
-			continue
-		}
-		if tmp {
-			cnt++
-		}
-	}
-	return cnt
-}
-
 func (this *Peer) nextToDownload() int {
-	min := maxPeerNum + 1
-	mini := 0
-	for i := 0; i < len(this.Pieces); i++ {
-		if this.Pieces[i].Have == false {
-			// choose rarest piece
-			k := this.calcPiece(i)
-			if k <= min {
-				min = k
-				mini = i
-			}
-		}
-	}
-	return mini
+	ret := this.order[0]
+	this.order = this.order[1:]
+	return ret
 }
 
 func (this *Peer) GetPiece(pieceNum *int, reply *PieceInfo) error {
@@ -217,9 +188,24 @@ func (this *Peer) download(pieceNum int) {
 	}
 }
 
+func sortByValue(m map[int]int) []int {
+	var keys []int
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return m[keys[i]] < m[keys[j]]
+	})
+	return keys
+}
+
 /* Get Node Info (torrent.info) */
 func (this *Peer) getTorrentInfo() {
+	var a map[int]int
+	a = make(map[int]int)
+
 	for i := 0; i < maxPieceNum; i++ {
+		cur := 0
 		for _, p := range this.availablePeers {
 			client, err := this.Connect(p)
 			if err != nil {
@@ -234,15 +220,20 @@ func (this *Peer) getTorrentInfo() {
 			}
 			_ = client.Close()
 			if reply.Have == true {
-				this.Pieces = append(this.Pieces, reply)
-				this.Pieces[i].Have = false
-				break
+				if cur == 0 {
+					this.Pieces = append(this.Pieces, reply)
+					this.Pieces[i].Have = false
+				}
+				cur++
 			}
 		}
+		a[i] = cur
 		if this.Pieces[i].IsLast {
 			break
 		}
 	}
+	this.order = sortByValue(a)
+	fmt.Println(this.Self, "ORDER:", this.order)
 }
 
 func (this *Peer) Download(link string, name string) bool {
@@ -270,13 +261,7 @@ func (this *Peer) Download(link string, name string) bool {
 	if this.file == nil {
 		log.Fatal("Can't create file")
 	}
-	t := make([]byte, pieceSize)
-	for i := 0; i < this.totalPieces; i++ {
-		_, err := this.file.Write(t)
-		if err != nil {
-			log.Fatal("Can't allocate file")
-		}
-	}
+	_ = this.file.Truncate(int64(this.totalPieces * pieceSize))
 	_ = this.file.Sync()
 
 	/* Start download */
@@ -297,6 +282,6 @@ func (this *Peer) Download(link string, name string) bool {
 		log.Fatal(this.file.Name(), " Download Failed")
 		return false
 	}
-	fmt.Println("Download successful")
+	fmt.Println(this.file.Name(), "Download successful")
 	return true
 }

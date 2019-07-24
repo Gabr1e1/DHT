@@ -14,12 +14,9 @@ func main() {
 	port += 2
 
 	var wg sync.WaitGroup
-	//var t app.Peer
-	//t.Run(port, port+1, seed.Node.Info.IPAddr, &wg)
-	//t.Download(link, "lol"+strconv.Itoa(0)+".exe")
 
-	wg.Add(5)
-	for i := 0; i < 5; i++ {
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
 		var t app.Peer
 		t.Run(port, port+1, seed.Node.Info.IPAddr, &wg)
 		go t.Download(link, "lol"+strconv.Itoa(i)+".exe")
