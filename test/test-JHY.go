@@ -1,7 +1,6 @@
 package main
 
 import (
-	"../src"
 	"fmt"
 	"log"
 	"math/rand"

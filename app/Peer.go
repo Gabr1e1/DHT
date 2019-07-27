@@ -144,9 +144,6 @@ func (this *Peer) GetPiece(pieceNum *int, reply *PieceInfo) error {
 }
 
 func (this *Peer) getBestPeer(curPeer []PeerInfo) PeerInfo {
-	/*
-		TODO: use tit-tat strategy
-	*/
 	return curPeer[rand.Intn(len(curPeer))]
 }
 

@@ -134,9 +134,15 @@ func (n *Node) findPredecessor(id *big.Int) InfoType {
 			fmt.Println("Can't find Predecessor: ", err)
 			return InfoType{"", big.NewInt(0)}
 		}
-		client, _ := n.Connect(p)
-		_ = client.Call("Node.FindFirstSuccessorAlive", 0, &successor)
-		_ = client.Close()
+		client, err := n.Connect(p)
+		if err != nil {
+			return InfoType{"", big.NewInt(0)}
+		}
+		err = client.Call("Node.FindFirstSuccessorAlive", 0, &successor)
+		if err != nil {
+			return InfoType{"", big.NewInt(0)}
+		}
+		err = client.Close()
 
 	}
 	//fmt.Printf("Found Predecessor using %d jumps\n", cnt)
@@ -427,6 +433,6 @@ func (n *Node) fixFingers() {
 		if err != nil {
 			continue
 		}
-		time.Sleep(666 * time.Millisecond)
+		time.Sleep(333 * time.Millisecond)
 	}
 }

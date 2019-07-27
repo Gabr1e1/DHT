@@ -11,12 +11,14 @@ import (
 
 const duplicateNum = 1
 
-// create a dht-net with this node as start node
-func (n *Node) Create(addr string) {
+func (n *Node) Create_(addr string) {
 	var t = GetHash(addr)
 	n.Info = InfoType{addr, t}
 	n.Predecessor = InfoType{"", big.NewInt(0)}
 	fmt.Println("INFO: ", n.Info)
+}
+
+func (n *Node) Create() {
 	if len(n.data) == 0 {
 		n.data = make(map[string]KVPair)
 	}
