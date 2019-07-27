@@ -170,14 +170,16 @@ func (n *Node) Join(addr string) bool {
 
 func (n *Node) Quit() {
 	var tmp int
+	_ = n.listener.Close()
+	n.status = 0
 
-	n.mux.Lock()
+	fmt.Println("Quit1")
 	err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
-	n.mux.Unlock()
 	if err != nil {
-		log.Fatal("Quit failed")
+		return
 	}
 
+	fmt.Println("Quit2")
 	err = n.TransferDataForce(&n.Successors[0], &tmp)
 	if err != nil {
 		fmt.Println("Quit error: ", err)
@@ -187,6 +189,8 @@ func (n *Node) Quit() {
 	if err != nil {
 		return
 	}
+
+	fmt.Println("Quit3")
 	err = client.Call("Node.ModifySuccessors", &n.Successors[0], &tmp)
 	_ = client.Close()
 	if err != nil {
@@ -194,6 +198,7 @@ func (n *Node) Quit() {
 		return
 	}
 
+	fmt.Println("Quit4")
 	client, err = n.Connect(n.Successors[0])
 	if err != nil {
 		return
@@ -204,9 +209,6 @@ func (n *Node) Quit() {
 		fmt.Println("Quit error: ", err)
 		return
 	}
-
-	_ = n.listener.Close()
-	n.status = 0
 }
 
 func (n *Node) ForceQuit() {

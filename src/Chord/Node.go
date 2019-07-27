@@ -3,8 +3,8 @@
 package DHT
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"math/rand"
 	"net"
@@ -51,15 +51,23 @@ func checkBetween(a, b, mid *big.Int) bool {
 
 //the successor list might not be effective due to force quitting nodes
 func (n *Node) FindFirstSuccessorAlive(tmp *int, reply *InfoType) error {
+	n.mux.Lock()
 	for i, node := range n.Successors {
 		if !n.Ping(node.IPAddr) {
 			n.Successors[i] = InfoType{"", big.NewInt(0)}
 			continue
 		}
 		*reply = copyInfo(node)
+
+		n.mux.Unlock()
+		//update successor list
+		if node.IPAddr != n.Successors[0].IPAddr {
+			_ = n.ModifySuccessors(&node, nil)
+		}
 		return nil
 	}
-	return nil //No successor
+	n.mux.Unlock()
+	return errors.New("NoSuccessor")
 }
 
 func (n *Node) GetSuccessors(_ *int, reply *[M]InfoType) error {
@@ -113,7 +121,8 @@ func (n *Node) findPredecessor(id *big.Int) InfoType {
 	var tmp int
 	err := n.FindFirstSuccessorAlive(&tmp, &successor)
 	if err != nil {
-		log.Fatal("Can't find predecessor")
+		fmt.Println("Can't find predecessor")
+		return InfoType{"", big.NewInt(0)}
 	}
 
 	for (!checkBetween(big.NewInt(1).Add(p.NodeNum, big.NewInt(1)), successor.NodeNum, id)) && cnt <= RoutingLimit {
@@ -187,9 +196,7 @@ func (n *Node) FindSuccessor(id *big.Int, reply *InfoType) error {
 	if err != nil {
 		return err
 	}
-	n.mux.Lock()
 	err = client.Call("Node.FindFirstSuccessorAlive", 0, reply)
-	n.mux.Unlock()
 	_ = client.Close()
 
 	if err != nil {
@@ -361,9 +368,7 @@ func (n *Node) stabilize() {
 		var tmp int
 		var x = InfoType{"", big.NewInt(0)}
 
-		n.mux.Lock()
 		err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
-		n.mux.Unlock()
 		if err != nil {
 			continue
 		}

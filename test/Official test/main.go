@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 )
 
 var (
@@ -98,7 +99,7 @@ func main() {
 		red.Print("Select error, ask -h for help")
 		os.Exit(0)
 	}
-
+	fmt.Println(time.Now())
 }
 
 func usage() {
