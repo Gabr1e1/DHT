@@ -7,9 +7,11 @@ import (
 )
 
 func advancedTest() {
-	testWhenStabAndQuit(4)
-	testWhenStabAndQuit(2)
-	testRandom()
+	for i := 0; i < 1; i++ {
+		testWhenStabAndQuit(4)
+		testWhenStabAndQuit(2)
+		testRandom()
+	}
 }
 
 func testWhenStabAndQuit(rate time.Duration) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"../../src/Chord"
 	"flag"
 	"fmt"
 	"os"
@@ -56,6 +57,9 @@ func failrate() float64 {
 }
 
 func main() {
+	file, _ := os.Create("error.log")
+	DHT.RedirectStderr(file)
+
 	green.Println("Start Testing")
 	switch level {
 	case -1:

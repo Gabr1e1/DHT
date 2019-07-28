@@ -298,8 +298,10 @@ func (n *Node) GetNodeInfo(_ *int, reply *InfoType) error {
 }
 
 func (n *Node) DirectPut(KV *KVPair, reply *int) error {
+	n.mux.Lock()
 	var t = GetHash(KV.Key)
 	n.data[t.String()] = *KV
+	n.mux.Unlock()
 	return nil
 }
 
@@ -422,11 +424,13 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 
 func (n *Node) checkPredecessor() {
 	for {
+		n.mux.Lock()
 		if n.Predecessor.IPAddr != "" {
 			if !n.Ping(n.Predecessor.IPAddr) {
 				n.Predecessor = InfoType{"", big.NewInt(0)}
 			}
 		}
+		n.mux.Unlock()
 		time.Sleep(333 * time.Millisecond)
 	}
 }
@@ -447,6 +451,54 @@ func (n *Node) fixFingers() {
 		if err != nil {
 			continue
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 	}
+
+	//i := 1
+	//for {
+	//	if n.status == 0 {
+	//		break
+	//	}
+	//
+	//	var id big.Int
+	//	id.Add(n.Info.NodeNum, id.Exp(big.NewInt(2), big.NewInt(int64(i)), nil))
+	//	if id.Cmp(expM) >= 0 {
+	//		id.Sub(&id, expM)
+	//	}
+	//
+	//	err := n.FindSuccessor(&id, &n.Finger[i])
+	//	if err != nil {
+	//		continue
+	//	}
+	//	i++
+	//	if i >= M {
+	//		i = 1
+	//	}
+	//
+	//	//check all fingers
+	//	n.mux.Lock()
+	//	j := i
+	//	for {
+	//		j++
+	//		if j >= M {
+	//			j = 1
+	//			break
+	//		}
+	//		var id big.Int
+	//		id.Add(n.Info.NodeNum, id.Exp(big.NewInt(2), big.NewInt(int64(j)), nil))
+	//		if id.Cmp(expM) >= 0 {
+	//			id.Sub(&id, expM)
+	//		}
+	//
+	//		if checkBetween(n.Info.NodeNum, n.Finger[i].NodeNum, &id) {
+	//			//fmt.Println(n.Info.NodeNum.String(), n.Finger[i].NodeNum.String(), id.String())
+	//			n.Finger[j] = copyInfo(n.Finger[i])
+	//		} else {
+	//			break
+	//		}
+	//	}
+	//	n.mux.Unlock()
+	//	//fmt.Println(i,j)
+	//	time.Sleep(100 * time.Millisecond)
+	//}
 }
