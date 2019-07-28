@@ -8,7 +8,7 @@ import (
 
 func advancedTest() {
 	testWhenStabAndQuit(4)
-	testWhenStabAndQuit(2)
+	//testWhenStabAndQuit(2)
 
 	testRandom()
 }
@@ -75,6 +75,7 @@ func testWhenStabAndQuit(rate time.Duration) {
 	failcnt = 0
 	cnt = 0
 	for i := 0; i < maxDataSize; i++ {
+		fmt.Println("put", i)
 		k := randString(50)
 		v := randString(50)
 		keyArray[i] = k

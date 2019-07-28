@@ -2,7 +2,6 @@ package DHT
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/rpc"
 	"time"
@@ -35,8 +34,8 @@ func (this *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 	case client := <-c:
 		//fmt.Println("Call Successful")
 		return client, nil
-	case <-time.After(666 * time.Millisecond):
-		fmt.Println("Can't Connect ", otherNode)
+	case <-time.After(333 * time.Millisecond):
+		//fmt.Println("Can't Connect ", otherNode)
 		if err == nil {
 			err = errors.New("can't connect")
 		}

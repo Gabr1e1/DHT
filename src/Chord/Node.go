@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"net"
 	"net/rpc"
 	"sync"
@@ -54,6 +53,9 @@ func (n *Node) FindFirstSuccessorAlive(tmp *int, reply *InfoType) error {
 	n.mux.Lock()
 	for i, node := range n.Successors {
 		if !n.Ping(node.IPAddr) {
+			if node.IPAddr != "" {
+				fmt.Println("Failed in FindFirstSuccessorAlive")
+			}
 			n.Successors[i] = InfoType{"", big.NewInt(0)}
 			continue
 		}
@@ -61,9 +63,7 @@ func (n *Node) FindFirstSuccessorAlive(tmp *int, reply *InfoType) error {
 
 		n.mux.Unlock()
 		//update successor list
-		if node.IPAddr != n.Successors[0].IPAddr {
-			_ = n.ModifySuccessors(&node, nil)
-		}
+		_ = n.ModifySuccessors(&node, nil)
 		return nil
 	}
 	n.mux.Unlock()
@@ -154,8 +154,10 @@ func (n *Node) findPredecessor(id *big.Int) InfoType {
 		err = client.Close()
 
 	}
-	//fmt.Printf("Found Predecessor using %d jumps\n", cnt)
-	//fmt.Println(n.Info, " Found predecessor", p)
+	//if cnt > 10 {
+	//	fmt.Printf("Found Predecessor using %d jumps\n", cnt)
+	//	fmt.Println(n.Info, " Found predecessor", p)
+	//}
 	return p
 }
 
@@ -165,6 +167,9 @@ func (n *Node) ClosestPrecedingNode(id *big.Int, reply *InfoType) error {
 		if checkBetween(big.NewInt(1).Add(n.Info.NodeNum, big.NewInt(1)), id, n.Finger[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Finger[i].IPAddr) {
+				if n.Finger[i].IPAddr != "" {
+					//fmt.Println(n.Info, "Failed in ClosestPrecedingNode1")
+				}
 				n.Finger[i] = InfoType{"", big.NewInt(0)}
 				continue
 			}
@@ -178,6 +183,9 @@ func (n *Node) ClosestPrecedingNode(id *big.Int, reply *InfoType) error {
 		if checkBetween(big.NewInt(1).Add(n.Info.NodeNum, big.NewInt(1)), id, n.Successors[i].NodeNum) {
 			// possible fail node
 			if !n.Ping(n.Successors[i].IPAddr) {
+				if n.Successors[i].IPAddr != "" {
+					//fmt.Println(n.Info, "Failed in ClosestPrecedingNode2")
+				}
 				n.Successors[i] = InfoType{"", big.NewInt(0)}
 				continue
 			}
@@ -186,7 +194,7 @@ func (n *Node) ClosestPrecedingNode(id *big.Int, reply *InfoType) error {
 		}
 	}
 
-	*reply = copyInfo(n.Info)
+	*reply = copyInfo(n.Successors[0])
 	return nil
 }
 
@@ -406,7 +414,7 @@ func (n *Node) stabilize() {
 			fmt.Println("Can't Notify: ", err)
 			continue
 		}
-		time.Sleep(333 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -423,11 +431,12 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 }
 
 func (n *Node) fixFingers() {
+	i := 1
 	for {
 		if n.status == 0 {
 			break
 		}
-		i := rand.Intn(M-1) + 1 //random numbers in [1, M - 1]
+
 		var id big.Int
 		id.Add(n.Info.NodeNum, id.Exp(big.NewInt(2), big.NewInt(int64(i)), nil))
 		if id.Cmp(expM) >= 0 {
@@ -438,6 +447,34 @@ func (n *Node) fixFingers() {
 		if err != nil {
 			continue
 		}
-		time.Sleep(333 * time.Millisecond)
+		i++
+		if i >= M {
+			i = 1
+		}
+
+		//check all fingers
+		j := i
+		for {
+			j++
+			if j >= M {
+				j = 1
+				break
+			}
+			var id big.Int
+			id.Add(n.Info.NodeNum, id.Exp(big.NewInt(2), big.NewInt(int64(j)), nil))
+			if id.Cmp(expM) >= 0 {
+				id.Sub(&id, expM)
+			}
+
+			if checkBetween(n.Info.NodeNum, n.Finger[i].NodeNum, &id) {
+				//fmt.Println(n.Info.NodeNum.String(), n.Finger[i].NodeNum.String(), id.String())
+				n.Finger[j] = copyInfo(n.Finger[i])
+			} else {
+				break
+			}
+		}
+		//fmt.Println(i,j)
+		i = j
+		time.Sleep(100 * time.Millisecond)
 	}
 }

@@ -94,7 +94,7 @@ func (n *Node) Ping(addr string) bool {
 
 	client, err := n.Connect(InfoType{addr, big.NewInt(0)})
 	if err != nil {
-		fmt.Println("Ping Failed", addr)
+		//fmt.Println("Ping Failed", addr)
 		return false
 	}
 
@@ -172,14 +172,10 @@ func (n *Node) Quit() {
 	var tmp int
 	_ = n.listener.Close()
 	n.status = 0
-
-	fmt.Println("Quit1")
 	err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
 	if err != nil {
 		return
 	}
-
-	fmt.Println("Quit2")
 	err = n.TransferDataForce(&n.Successors[0], &tmp)
 	if err != nil {
 		fmt.Println("Quit error: ", err)
@@ -189,16 +185,12 @@ func (n *Node) Quit() {
 	if err != nil {
 		return
 	}
-
-	fmt.Println("Quit3")
 	err = client.Call("Node.ModifySuccessors", &n.Successors[0], &tmp)
 	_ = client.Close()
 	if err != nil {
 		fmt.Println("Quit error: ", err)
 		return
 	}
-
-	fmt.Println("Quit4")
 	client, err = n.Connect(n.Successors[0])
 	if err != nil {
 		return
