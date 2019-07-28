@@ -40,6 +40,7 @@ func (n *Node) Run() {
 	go n.server.Accept(n.listener)
 	go n.stabilize()
 	go n.fixFingers()
+	go n.checkPredecessor()
 }
 
 func (n *Node) Get(k string) (bool, string) {

@@ -24,16 +24,21 @@ func (this *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 			client, err = rpc.Dial("tcp", otherNode.IPAddr)
 			if err == nil {
 				c <- client
-				break
+				return
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
+		c <- nil
 	}()
 
 	select {
 	case client := <-c:
 		//fmt.Println("Call Successful")
-		return client, nil
+		if client != nil {
+			return client, nil
+		} else {
+			return nil, errors.New("can't connect")
+		}
 	case <-time.After(333 * time.Millisecond):
 		//fmt.Println("Can't Connect ", otherNode)
 		if err == nil {

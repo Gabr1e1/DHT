@@ -8,8 +8,7 @@ import (
 
 func advancedTest() {
 	testWhenStabAndQuit(4)
-	//testWhenStabAndQuit(2)
-
+	testWhenStabAndQuit(2)
 	testRandom()
 }
 
