@@ -107,8 +107,7 @@ func (n *Node) Ping(addr string) bool {
 	return success > 0
 }
 
-func (n *Node) GetStatus(_ *int,
-	reply *int) error {
+func (n *Node) GetStatus(_ *int, reply *int) error {
 	*reply = n.status
 	return nil
 }

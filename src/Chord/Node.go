@@ -60,8 +60,6 @@ func (n *Node) FindFirstSuccessorAlive(tmp *int, reply *InfoType) error {
 		*reply = copyInfo(node)
 
 		n.mux.Unlock()
-		//update successor list
-		_ = n.ModifySuccessors(&node, nil)
 		return nil
 	}
 	n.mux.Unlock()
