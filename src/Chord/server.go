@@ -60,9 +60,6 @@ func (n *Node) Put(k string, v string) bool {
 	for i := 0; i < duplicateNum; i++ {
 		var newk = k + "?" + strconv.Itoa(i)
 		_ = n.Put_(&KVPair{newk, v}, &flg)
-		if !flg {
-			return false
-		}
 	}
 	return true
 }

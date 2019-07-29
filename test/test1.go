@@ -29,7 +29,7 @@ func main() {
 		fmt.Println(node[i].Finger[0].NodeNum)
 	}
 
-	//Put & Get
+	//Put & GetClosest
 	for i := 1; i <= 1000; i++ {
 		fmt.Println(i)
 		node[rand.Intn(size)].Put(strconv.Itoa(i), strconv.Itoa(i))
@@ -48,7 +48,7 @@ func main() {
 		}
 	}
 
-	//Del & Get again
+	//Del & GetClosest again
 	for i := 1; i <= 1000; i++ {
 		fmt.Println(i)
 		node[rand.Intn(size)].Del(strconv.Itoa(i))

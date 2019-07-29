@@ -127,9 +127,13 @@ func (n *Node) findPredecessor(id *big.Int) InfoType {
 		cnt++
 		var err error
 		if p.NodeNum.Cmp(n.Info.NodeNum) != 0 {
-			client, _ := n.Connect(p)
+			client, err := n.Connect(p)
+			if err != nil {
+				return InfoType{"", big.NewInt(0)}
+			}
 			err = client.Call("Node.ClosestPrecedingNode", id, &p)
 			if err != nil {
+				_ = client.Close()
 				return InfoType{"", big.NewInt(0)}
 			}
 			_ = client.Close()
@@ -204,6 +208,16 @@ func (n *Node) FindSuccessor(id *big.Int, reply *InfoType) error {
 	return nil
 }
 
+func (n *Node) DirectGet_(k *string, reply *string) error {
+	id := GetHash(*k)
+	val, ok := n.data[id.String()]
+	if !ok {
+		return errors.New("can't get")
+	}
+	*reply = val.Value
+	return nil
+}
+
 func (n *Node) Get_(k *string, reply *string) error {
 	id := GetHash(*k)
 	if val, ok := n.data[id.String()]; ok {
@@ -222,7 +236,7 @@ func (n *Node) Get_(k *string, reply *string) error {
 			return err
 		}
 		var res string
-		err = client.Call("Node.Get_", k, &res)
+		err = client.Call("Node.DirectGet_", k, &res)
 		if err != nil {
 			_ = client.Close()
 			fmt.Println("Can't get Node: ", err)
@@ -231,6 +245,13 @@ func (n *Node) Get_(k *string, reply *string) error {
 		_ = client.Close()
 		*reply = res
 	}
+	return nil
+}
+
+func (n *Node) DirectPut_(kv *KVPair, reply *bool) error {
+	id := GetHash(kv.Key)
+	n.data[id.String()] = *kv
+	*reply = true
 	return nil
 }
 
@@ -251,7 +272,7 @@ func (n *Node) Put_(kv *KVPair, reply *bool) error {
 		if err != nil {
 			return err
 		}
-		err = client.Call("Node.Put_", kv, reply)
+		err = client.Call("Node.DirectPut_", kv, reply)
 		if err != nil {
 			_ = client.Close()
 			fmt.Println("Can't Put data in another node: ", err)
@@ -259,6 +280,18 @@ func (n *Node) Put_(kv *KVPair, reply *bool) error {
 		}
 		_ = client.Close()
 	}
+	return nil
+}
+
+func (n *Node) DirectDel_(k *string, reply *bool) error {
+	n.mux.Lock()
+	id := GetHash(*k)
+	_, ok := n.data[id.String()]
+	if ok {
+		delete(n.data, id.String())
+	}
+	*reply = ok
+	n.mux.Unlock()
 	return nil
 }
 
@@ -281,7 +314,7 @@ func (n *Node) Del_(k *string, reply *bool) error {
 		if err != nil {
 			return err
 		}
-		err = client.Call("Node.Del_", k, reply)
+		err = client.Call("Node.DirectDel_", k, reply)
 		if err != nil {
 			_ = client.Close()
 			fmt.Println("Can't Delete data in another node: ", err)
@@ -406,7 +439,7 @@ func (n *Node) stabilize() {
 			fmt.Println("Can't Notify: ", err)
 			continue
 		}
-		time.Sleep(333 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -431,7 +464,7 @@ func (n *Node) checkPredecessor() {
 			}
 		}
 		n.mux.Unlock()
-		time.Sleep(333 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -451,54 +484,6 @@ func (n *Node) fixFingers() {
 		if err != nil {
 			continue
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
-
-	//i := 1
-	//for {
-	//	if n.status == 0 {
-	//		break
-	//	}
-	//
-	//	var id big.Int
-	//	id.Add(n.Info.NodeNum, id.Exp(big.NewInt(2), big.NewInt(int64(i)), nil))
-	//	if id.Cmp(expM) >= 0 {
-	//		id.Sub(&id, expM)
-	//	}
-	//
-	//	err := n.FindSuccessor(&id, &n.Finger[i])
-	//	if err != nil {
-	//		continue
-	//	}
-	//	i++
-	//	if i >= M {
-	//		i = 1
-	//	}
-	//
-	//	//check all fingers
-	//	n.mux.Lock()
-	//	j := i
-	//	for {
-	//		j++
-	//		if j >= M {
-	//			j = 1
-	//			break
-	//		}
-	//		var id big.Int
-	//		id.Add(n.Info.NodeNum, id.Exp(big.NewInt(2), big.NewInt(int64(j)), nil))
-	//		if id.Cmp(expM) >= 0 {
-	//			id.Sub(&id, expM)
-	//		}
-	//
-	//		if checkBetween(n.Info.NodeNum, n.Finger[i].NodeNum, &id) {
-	//			//fmt.Println(n.Info.NodeNum.String(), n.Finger[i].NodeNum.String(), id.String())
-	//			n.Finger[j] = copyInfo(n.Finger[i])
-	//		} else {
-	//			break
-	//		}
-	//	}
-	//	n.mux.Unlock()
-	//	//fmt.Println(i,j)
-	//	time.Sleep(100 * time.Millisecond)
-	//}
 }

@@ -1,6 +1,9 @@
 package Kademlia
 
-import "math/big"
+import (
+	"math/big"
+	"sort"
+)
 
 func (this *Node) getDis(contact Contact) *big.Int {
 	var z big.Int
@@ -24,4 +27,15 @@ func (this *Node) CalcPrefix(num *big.Int) int {
 
 func verifyIdentity(A Contact, B Contact) bool {
 	return A.NodeNum.Cmp(B.NodeNum) == 0 && A.IPAddr == B.IPAddr
+}
+
+func (this *Node) GetClosestInList(num int, contacts []Contact) []Contact {
+	sort.Slice(contacts, func(i, j int) bool {
+		return this.getDis(contacts[i]).Cmp(this.getDis(contacts[j])) < 0
+	})
+	if len(contacts) >= num {
+		return contacts[0:num]
+	} else {
+		return contacts
+	}
 }

@@ -209,7 +209,7 @@ func sortByValue(m map[int]int) []int {
 	return keys
 }
 
-/* Get Node Info (torrent.info) */
+/* GetClosest Node Info (torrent.info) */
 func (this *Peer) getTorrentInfo() {
 	var a map[int]int
 	a = make(map[int]int)
@@ -262,7 +262,7 @@ func (this *Peer) Download(link string, name string) bool {
 		log.Fatal(this.Self, " Can't get value from dht")
 	}
 
-	/* Get Node Info (torrent.info) */
+	/* GetClosest Node Info (torrent.info) */
 	this.availablePeers = parsePeer(value)
 	this.getTorrentInfo()
 

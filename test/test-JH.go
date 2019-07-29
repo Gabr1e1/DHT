@@ -40,7 +40,7 @@ func KVTest() {
 		p := rand.Int() % id
 		_, res := node[p].Get(k)
 		if res != v {
-			log.Fatalln("Get incorrect when get key", k)
+			log.Fatalln("GetClosest incorrect when get key", k)
 		}
 		cnt++
 		if cnt == 400 {

@@ -158,7 +158,7 @@ func main() {
 				break
 			}
 			var tmp = rand.Intn(nodecnt) + i*5 + 5
-			fmt.Println("Get ", cnt)
+			fmt.Println("GetClosest ", cnt)
 			success, fetchedVal := nodes[tmp].Get(k)
 			if !success {
 				success, fetchedVal = nodes[tmp].Get(k)

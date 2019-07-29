@@ -1,12 +1,18 @@
 package Kademlia
 
+import "math/rand"
+
 const K = 20
 
-type Kbucket struct {
+type KBucket struct {
 	contacts []Contact
 }
 
-func (this *Kbucket) insert(node *Node, contact Contact) {
+func (this *KBucket) size() int {
+	return len(this.contacts)
+}
+
+func (this *KBucket) insert(node *Node, contact Contact) {
 	if len(this.contacts) < K {
 		this.contacts = append(this.contacts, contact)
 		return
@@ -16,4 +22,13 @@ func (this *Kbucket) insert(node *Node, contact Contact) {
 	}
 }
 
-func (this *Kbucket) Get(K int)
+func (this *KBucket) Get(K int) []Contact {
+	rand.Shuffle(len(this.contacts), func(i, j int) {
+		this.contacts[i], this.contacts[j] = this.contacts[j], this.contacts[i]
+	})
+	if len(this.contacts) < K {
+		return this.contacts
+	} else {
+		return this.contacts[0:K]
+	}
+}
