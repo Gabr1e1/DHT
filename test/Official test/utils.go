@@ -1,17 +1,18 @@
 package main
 
 import (
-	"../../src/Chord"
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"sync"
+
+	"github.com/fatih/color"
 )
 
 const (
-	maxNode int = 200
+	maxNode int = 301
 	maxData int = 2000
 	maxFail     = 0.01
 	// config.Port   int   = 1111
@@ -37,9 +38,10 @@ var (
 )
 
 var (
-	letters   = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	totalFail int
-	totalCnt  int
+	letters    = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	totalFail  int
+	totalCnt   int
+	finalScore float64
 
 	// config    map[string]interface{}
 	config      configure
@@ -69,20 +71,36 @@ func init() {
 }
 
 func getIP() string {
-	return DHT.GetLocalAddress()
-	//var ipAddress string
-	//addrList, err := net.InterfaceAddrs()
-	//if err != nil {
-	//	panic("Fail to get IP address")
-	//}
-	//for _, a := range addrList {
-	//	if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-	//		if ipnet.IP.To4() != nil {
-	//			ipAddress = ipnet.IP.String()
-	//		}
-	//	}
-	//}
-	//return ipAddress
+	var localaddress string
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		panic("init: failed to find network interfaces")
+	}
+
+	// find the first non-loopback interface with an IP address
+	for _, elt := range ifaces {
+		if elt.Flags&net.FlagLoopback == 0 && elt.Flags&net.FlagUp != 0 {
+			addrs, err := elt.Addrs()
+			if err != nil {
+				panic("init: failed to get addresses for network interface")
+			}
+
+			for _, addr := range addrs {
+				if ipnet, ok := addr.(*net.IPNet); ok {
+					if ip4 := ipnet.IP.To4(); len(ip4) == net.IPv4len {
+						localaddress = ip4.String()
+						break
+					}
+				}
+			}
+		}
+	}
+	if localaddress == "" {
+		panic("init: failed to find non-loopback interface with valid address on this node")
+	}
+
+	return localaddress
 }
 
 func randString(n int) string {
@@ -115,4 +133,10 @@ func (e *error) printlnError() {
 	} else {
 		green.Printf("%s Passed\n", e.e)
 	}
+}
+
+func (e *error) finish() {
+	totalCnt += e.all
+	totalFail += e.cnt
+	e.printlnError()
 }

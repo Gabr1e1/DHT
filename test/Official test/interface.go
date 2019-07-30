@@ -25,6 +25,7 @@ type dhtNode interface {
 
 	// you can delete this function if you don't want to write.
 	Dump()
+	ForceQuit()
 }
 
 type dhtAdditive interface {

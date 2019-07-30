@@ -165,10 +165,17 @@ func (n *Node) Join(addr string) bool {
 	return true
 }
 
+func (n *Node) clear() {
+	for i := 0; i < M; i++ {
+		n.Successors[i] = InfoType{"", big.NewInt(0)}
+	}
+}
+
 func (n *Node) Quit() {
 	var tmp int
 	_ = n.listener.Close()
 	n.status = 0
+
 	err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
 	if err != nil {
 		return
@@ -198,6 +205,7 @@ func (n *Node) Quit() {
 		fmt.Println("Quit error: ", err)
 		return
 	}
+	n.clear()
 }
 
 func (n *Node) ForceQuit() {
