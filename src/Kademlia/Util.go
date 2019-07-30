@@ -1,22 +1,24 @@
 package Kademlia
 
 import (
+	"fmt"
 	"math/big"
 	"sort"
 )
 
 func (this *Node) getDis(contact Contact) *big.Int {
 	var z big.Int
-	z.Xor(this.self.NodeNum, contact.NodeNum)
+	z.Xor(this.Self.NodeNum, contact.NodeNum)
 	return &z
 }
 
 func (this *Node) CalcPrefix(num *big.Int) int {
-	var Mod = new(big.Int).Exp(big.NewInt(2), big.NewInt(M), nil)
+	//fmt.Println(this.Self.NodeNum.String(), num.String())
+	var Mod = big.NewInt(1)
 	for i := M - 1; i >= 1; i-- {
-		Mod.Div(Mod, big.NewInt(2))
+		Mod.Mul(Mod, big.NewInt(2))
 		var a, b big.Int
-		a.Div(this.self.NodeNum, Mod)
+		a.Div(this.Self.NodeNum, Mod)
 		b.Div(num, Mod)
 		if a.Cmp(&b) == 0 {
 			return i
@@ -38,4 +40,19 @@ func (this *Node) GetClosestInList(num int, contacts []Contact) []Contact {
 	} else {
 		return contacts
 	}
+}
+
+func (this *Node) Dump() {
+	fmt.Println("Dumping Info About", this.Self)
+	for i := 0; i < len(this.bucket); i++ {
+		if len(this.bucket[i].contacts) == 0 {
+			continue
+		}
+		fmt.Println("BUCKET", i, this.bucket[i])
+	}
+	fmt.Println("DATA: ")
+	for _, v := range this.data {
+		fmt.Print("{", v, "}")
+	}
+	fmt.Println()
 }

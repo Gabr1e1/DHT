@@ -6,73 +6,85 @@ import (
 )
 
 func (this *Node) update(contact Contact) {
+	if contact.IPAddr == this.Self.IPAddr {
+		return
+	}
 	belong := this.CalcPrefix(contact.NodeNum)
 	this.bucket[belong].insert(this, contact)
 }
 
 type PingReturn struct {
-	success bool
-	self    Contact
+	Success bool
+	Self    Contact
 }
 
 func (this *Node) RPCPing(sender *Contact, reply *PingReturn) error {
 	this.update(*sender)
-	*reply = PingReturn{true, this.self}
+
+	*reply = PingReturn{true, this.Self}
 	return nil
 }
 
 type StoreRequest struct {
-	sender Contact
-	data   KVPair
-	expire time.Time
+	Sender Contact
+	Data   KVPair
+	Expire time.Time
 }
 
 type StoreReturn struct {
-	success bool
-	self    Contact
+	Success bool
+	Self    Contact
 }
 
 func (this *Node) RPCStore(request *StoreRequest, reply *StoreReturn) error {
-	this.update(request.sender)
-	this.data[request.data.key] = request.data.value
-	this.expireTime[request.data.key] = request.expire
-	*reply = StoreReturn{true, this.self}
+	this.update(request.Sender)
+
+	this.data[request.Data.Key] = request.Data.Value
+	this.expireTime[request.Data.Key] = request.Expire
+	*reply = StoreReturn{true, this.Self}
 	return nil
 }
 
 type FindNodeRequest struct {
-	sender Contact
-	id     *big.Int
+	Sender Contact
+	Id     *big.Int
 }
 
 type FindNodeReturn struct {
-	closest []Contact
-	self    Contact
+	Closest []Contact
+	Self    Contact
 }
 
 func (this *Node) RPCFindNode(request *FindNodeRequest, reply *FindNodeReturn) error {
-	cur := this.GetClosest(request.id, K)
-	*reply = FindNodeReturn{cur, this.self}
+	this.update(request.Sender)
+	cur := this.GetClosest(request.Id, K)
+	*reply = FindNodeReturn{cur, this.Self}
 	return nil
 }
 
-type FindValueRequest = FindNodeRequest
+type FindValueRequest struct {
+	Sender Contact
+	Id     *big.Int
+	Key    string
+}
 
 //type Set = map[string]struct{}
 
 type FindValueReturn struct {
-	closest []Contact
-	self    Contact
-	val     string
+	Closest []Contact
+	Self    Contact
+	Val     string
 }
 
 func (this *Node) RPCFindValue(request *FindValueRequest, reply *FindValueReturn) error {
-	if _, ok := this.data[request.id.String()]; ok {
-		*reply = FindValueReturn{nil, this.self, this.data[request.id.String()]}
+	this.update(request.Sender)
+
+	if _, ok := this.data[request.Key]; ok {
+		*reply = FindValueReturn{nil, this.Self, this.data[request.Key]}
 		return nil
 	}
 	var tmp FindNodeReturn
-	err := this.RPCFindNode(request, &tmp)
-	*reply = FindValueReturn{tmp.closest, this.self, ""}
+	err := this.RPCFindNode(&FindNodeRequest{request.Sender, request.Id}, &tmp)
+	*reply = FindValueReturn{tmp.Closest, this.Self, ""}
 	return err
 }

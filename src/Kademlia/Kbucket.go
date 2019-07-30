@@ -1,6 +1,8 @@
 package Kademlia
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 const K = 20
 
@@ -13,6 +15,15 @@ func (this *KBucket) size() int {
 }
 
 func (this *KBucket) insert(node *Node, contact Contact) {
+	for i := 0; i < len(this.contacts); i++ {
+		if contact.IPAddr == this.contacts[i].IPAddr {
+			t := this.contacts[i]
+			this.contacts = append(this.contacts[0:i], this.contacts[i+1:]...)
+			this.contacts = append(this.contacts, t)
+			return
+		}
+	}
+
 	if len(this.contacts) < K {
 		this.contacts = append(this.contacts, contact)
 		return

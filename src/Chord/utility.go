@@ -1,10 +1,8 @@
 package DHT
 
 import (
-	"log"
 	"math/big"
 	"os"
-	"syscall"
 )
 
 func copyInfo(t InfoType) InfoType {
@@ -12,8 +10,8 @@ func copyInfo(t InfoType) InfoType {
 }
 
 func RedirectStderr(f *os.File) {
-	err := syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
-	if err != nil {
-		log.Fatalf("Failed to redirect stderr to file: %v", err)
-	}
+	//err := syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
+	//if err != nil {
+	//	log.Fatalf("Failed to redirect stderr to file: %v", err)
+	//}
 }

@@ -10,7 +10,7 @@ import (
 
 const maxTry = 3
 
-func (this *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
+func (this *Node) Connect(otherNode Contact) (*rpc.Client, error) {
 	//fmt.Println("Calling: ", otherNode)
 	if otherNode.IPAddr == "" {
 		return nil, errors.New("invalid address")
@@ -25,16 +25,19 @@ func (this *Node) Connect(otherNode InfoType) (*rpc.Client, error) {
 			client, err = rpc.Dial("tcp", otherNode.IPAddr)
 			if err == nil {
 				c <- client
-				break
+				return
 			}
-			time.Sleep(10 * time.Millisecond)
 		}
+		c <- nil
 	}()
 
 	select {
 	case client := <-c:
-		//fmt.Println("Call Successful")
-		return client, nil
+		if client != nil {
+			return client, nil
+		} else {
+			return nil, errors.New("cant' connect")
+		}
 	case <-time.After(666 * time.Millisecond):
 		fmt.Println("Can't Connect ", otherNode)
 		if err == nil {
