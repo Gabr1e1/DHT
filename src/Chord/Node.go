@@ -485,3 +485,25 @@ func (n *Node) fixFingers() {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
+
+func (n *Node) maintain() {
+	for {
+		err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
+		if err != nil {
+			continue
+		}
+		client, err := n.Connect(n.Successors[0])
+		if err != nil {
+			continue
+		}
+		n.mux.Lock()
+		for _, kv := range n.data {
+			n.mux.Unlock()
+			var reply int
+			_ := client.Call("Node.DirectPut", &kv, &reply)
+			n.mux.Lock()
+		}
+		n.mux.Unlock()
+		time.Sleep(100 * time.Millisecond)
+	}
+}

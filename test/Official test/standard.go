@@ -59,7 +59,7 @@ func standardTest() {
 	info := make([]error, 7)
 	defer func() {
 		if r := recover(); r != nil {
-			red.Println("Accidently end: ", r)
+			fmt.Println("Accidently end: ", r)
 		}
 		for _, inf := range info {
 			totalCnt += inf.all
@@ -105,7 +105,7 @@ func standardTest() {
 	for i := 1; i <= 5; i++ {
 		failcnt := 0
 		cnt := 0
-		green.Printf("Round #%d\n", i)
+		fmt.Printf("Round #%d\n", i)
 
 		for j := 1; j <= roundNodeSize; j++ {
 			curport := config.Port + leavepos

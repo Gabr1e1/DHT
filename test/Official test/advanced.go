@@ -16,12 +16,12 @@ func advancedTest() {
 }
 
 func testForceQuit(rate time.Duration) {
-	blue.Println("Start FQ test")
+	fmt.Println("Start FQ test")
 	var info error
 
 	defer func() {
 		if r := recover(); r != nil {
-			red.Println("Accidently end: ", r)
+			fmt.Println("Accidently end: ", r)
 		}
 
 		totalCnt += info.all
@@ -99,11 +99,11 @@ func testForceQuit(rate time.Duration) {
 }
 
 func testWhenStabAndQuit(rate time.Duration) {
-	blue.Println("Start test StabAndQuit")
+	fmt.Println("Start test StabAndQuit")
 	info := make([]error, 4)
 	defer func() {
 		if r := recover(); r != nil {
-			red.Println("Accidently end: ", r)
+			fmt.Println("Accidently end: ", r)
 		}
 		for _, inf := range info {
 			totalCnt += inf.all
@@ -215,11 +215,11 @@ func testWhenStabAndQuit(rate time.Duration) {
 }
 
 func testRandom(rate time.Duration) {
-	blue.Println("Start random test")
+	fmt.Println("Start random test")
 	info := make([]error, 4)
 	defer func() {
 		if r := recover(); r != nil {
-			red.Println("Accidently end: ", r)
+			fmt.Println("Accidently end: ", r)
 		}
 		for _, inf := range info {
 			totalCnt += inf.all

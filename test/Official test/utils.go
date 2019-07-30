@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"net"
 	"sync"
-
-	"github.com/fatih/color"
 )
 
 const (
@@ -16,12 +14,6 @@ const (
 	maxData int = 2000
 	maxFail     = 0.01
 	// config.Port   int   = 1111
-)
-
-var (
-	green = color.New(color.FgGreen)
-	red   = color.New(color.FgRed)
-	blue  = color.New(color.FgBlue)
 )
 
 var (

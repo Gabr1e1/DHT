@@ -6,10 +6,7 @@ import (
 	"math/big"
 	"net"
 	"net/rpc"
-	"strconv"
 )
-
-const duplicateNum = 1
 
 func (n *Node) Create_(addr string) {
 	var t = GetHash(addr)
@@ -41,35 +38,24 @@ func (n *Node) Run() {
 	go n.stabilize()
 	go n.fixFingers()
 	go n.checkPredecessor()
+	go n.maintain()
 }
 
 func (n *Node) Get(k string) (bool, string) {
 	var val string
-	for i := 0; i < duplicateNum; i++ {
-		var newk = k + "?" + strconv.Itoa(i)
-		err := n.Get_(&newk, &val)
-		if err == nil {
-			return val != "", val
-		}
-	}
+	_ := n.Get_(&k, &val)
 	return val != "", val
 }
 
 func (n *Node) Put(k string, v string) bool {
 	var flg bool
-	for i := 0; i < duplicateNum; i++ {
-		var newk = k + "?" + strconv.Itoa(i)
-		_ = n.Put_(&KVPair{newk, v}, &flg)
-	}
+	_ = n.Put_(&KVPair{k, v}, &flg)
 	return true
 }
 
 func (n *Node) Del(k string) bool {
 	var flg bool
-	for i := 0; i < duplicateNum; i++ {
-		var newk = k + "?" + strconv.Itoa(i)
-		_ = n.Del_(&newk, &flg)
-	}
+	_ = n.Del_(&k, &flg)
 	return true
 }
 

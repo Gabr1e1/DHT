@@ -64,7 +64,7 @@ func failrate() float64 {
 }
 
 func main() {
-	green.Println("Start Testing")
+	fmt.Println("Start Testing")
 	finalScore = 0
 
 	switch level {
@@ -73,11 +73,11 @@ func main() {
 		totalCnt = 0
 		totalFail = 0
 	case 0:
-		blue.Println("Start Standard Tests")
+		fmt.Println("Start Standard Tests")
 		if standardTest(); maxFail > failrate() {
-			green.Println("Passed Standard Tests with", failrate())
+			fmt.Println("Passed Standard Tests with", failrate())
 		} else {
-			red.Println("Failed Standard Tests")
+			fmt.Println("Failed Standard Tests")
 			os.Exit(0)
 		}
 		finalScore += failrate()
@@ -85,30 +85,30 @@ func main() {
 		totalFail = 0
 		fallthrough
 	case 1:
-		blue.Println("Start Advanced Tests")
+		fmt.Println("Start Advanced Tests")
 		if advancedTest(); maxFail > failrate() {
-			green.Println("Passed Advanced Tests with", failrate())
+			fmt.Println("Passed Advanced Tests with", failrate())
 		} else {
-			red.Println("Failed Advanced Tests")
+			fmt.Println("Failed Advanced Tests")
 			// os.Exit(0)
 		}
 
 		totalCnt = 0
 		totalFail = 0
-		blue.Println("Start Force Quit Tests")
+		fmt.Println("Start Force Quit Tests")
 		if testForceQuit(2); maxFail > failrate()/50 {
-			green.Println("Passed Force Quit with", failrate())
+			fmt.Println("Passed Force Quit with", failrate())
 		} else {
-			red.Println("Failed Advanced Tests")
+			fmt.Println("Failed Advanced Tests")
 			os.Exit(0)
 		}
 		finalScore += failrate()
 	default:
-		red.Print("Select error, ask -h for help")
+		fmt.Print("Select error, ask -h for help")
 		os.Exit(0)
 	}
 
-	green.Printf("\nNot necessary, but tell finall score: %.2f\n", 1-finalScore)
+	fmt.Printf("\nNot necessary, but tell finall score: %.2f\n", 1-finalScore)
 }
 
 func usage() {
