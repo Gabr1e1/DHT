@@ -71,7 +71,7 @@ func (this *Node) checkExpire() {
 
 func (this *Node) Create(addr string) {
 	this.Self = Contact{addr, DHT.GetHash(addr)}
-	for i := 0; i < M; i++ {
+	for i := 0; i <= M; i++ {
 		this.bucket = append(this.bucket, KBucket{})
 	}
 	this.data = make(map[string]string)
@@ -100,6 +100,7 @@ func (this *Node) Join(addr string) {
 	}
 	var other Contact
 	err = client.Call("Node.GetContact", 0, &other)
+	_ = client.Close()
 	if err != nil {
 		fmt.Println(this.Self, "Can't get contact info", addr)
 		return
@@ -120,6 +121,7 @@ func (this *Node) Ping(contact Contact) bool {
 	}
 	var success bool
 	err = client.Call("Node.RPCPing", &this.Self, &success)
+	_ = client.Close()
 	if err != nil {
 		return false
 	}
@@ -137,9 +139,7 @@ func (this *Node) GetClosest(key *big.Int, num int) []Contact {
 			}
 			t = append(t, this.bucket[i].contacts...)
 		}
-		cur = append(cur, this.GetClosestInList(K-len(cur), t)...)
-	} else {
-		cur = cur[0:num]
+		cur = append(cur, this.GetClosestInList(num-len(cur), t)...)
 	}
 	return cur
 }
@@ -150,7 +150,6 @@ func (this *Node) FindNode(hashId *big.Int) []Contact {
 	ans = make(map[string]Contact)
 
 	for len(cur) > 0 {
-		//fmt.Println("FINDNODE1:", len(cur), len(ans))
 		contact := cur[0]
 		cur = cur[1:]
 
@@ -161,7 +160,7 @@ func (this *Node) FindNode(hashId *big.Int) []Contact {
 		}
 		var reply FindNodeReturn
 		err = client.Call("Node.RPCFindNode", &FindNodeRequest{this.Self, hashId}, &reply)
-		//fmt.Println("FINDNODE2:", len(cur), len(ans))
+		_ = client.Close()
 		if err != nil {
 			fmt.Println(this.Self, "Can't call RPCFindNode in", contact)
 			continue
@@ -180,6 +179,7 @@ func (this *Node) FindNode(hashId *big.Int) []Contact {
 	for _, v := range ans {
 		ansList = append(ansList, v)
 	}
+	//fmt.Println(ansList)
 	return this.GetClosestInList(K, ansList)
 }
 
@@ -190,23 +190,13 @@ func (this *Node) FindValue(hashId *big.Int, key string) string {
 	}
 
 	cur := this.GetClosest(hashId, alpha)
-	var ans []Contact
+	var ans map[string]Contact
+	ans = make(map[string]Contact)
 	for len(cur) > 0 {
+		fmt.Println(len(cur), cur)
 		contact := cur[0]
 		cur = cur[1:]
 
-		flg := false
-		for _, i := range ans {
-			if i.IPAddr == contact.IPAddr {
-				flg = true
-				break
-			}
-		}
-		if flg || contact.IPAddr == this.Self.IPAddr {
-			continue
-		}
-
-		ans = append(ans, contact)
 		client, err := this.Connect(contact)
 		if err != nil {
 			fmt.Println(this.Self, "Can't call", contact)
@@ -214,20 +204,32 @@ func (this *Node) FindValue(hashId *big.Int, key string) string {
 		}
 		var reply FindValueReturn
 		err = client.Call("Node.RPCFindValue", &FindValueRequest{this.Self, hashId, key}, &reply)
+		_ = client.Close()
 		if err != nil {
 			fmt.Println(this.Self, "Can't call FindValue in", contact, err)
 			continue
 		}
+
 		if reply.Val != "" {
 			return reply.Val
 		}
-		cur = append(cur, reply.Closest...)
+
+		t := reply.Closest
+		for _, i := range t {
+			_, ok := ans[i.IPAddr]
+			if ok {
+				continue
+			}
+			ans[i.IPAddr] = i
+			cur = append(cur, i)
+		}
 	}
 	return ""
 }
 
 func (this *Node) Put(key string, value string) bool {
 	kClosest := this.FindNode(DHT.GetHash(key))
+	fmt.Println("PUT", key, kClosest)
 	expireTime := time.Now().Add(expireTime)
 	for i := range kClosest {
 		client, err := this.Connect(kClosest[i])
@@ -236,7 +238,8 @@ func (this *Node) Put(key string, value string) bool {
 		}
 		var reply StoreReturn
 		err = client.Call("Node.RPCStore", &StoreRequest{this.Self, KVPair{key, value}, expireTime}, &reply)
-		if err != nil || !reply.Success || verifyIdentity(kClosest[i], reply.Self) {
+		_ = client.Close()
+		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Self) {
 			return false
 		}
 	}

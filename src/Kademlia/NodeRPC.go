@@ -19,7 +19,7 @@ type PingReturn struct {
 }
 
 func (this *Node) RPCPing(sender *Contact, reply *PingReturn) error {
-	this.update(*sender)
+	go this.update(*sender)
 
 	*reply = PingReturn{true, this.Self}
 	return nil
@@ -37,7 +37,7 @@ type StoreReturn struct {
 }
 
 func (this *Node) RPCStore(request *StoreRequest, reply *StoreReturn) error {
-	this.update(request.Sender)
+	go this.update(request.Sender)
 
 	this.data[request.Data.Key] = request.Data.Value
 	this.expireTime[request.Data.Key] = request.Expire
@@ -56,7 +56,7 @@ type FindNodeReturn struct {
 }
 
 func (this *Node) RPCFindNode(request *FindNodeRequest, reply *FindNodeReturn) error {
-	this.update(request.Sender)
+	go this.update(request.Sender)
 	cur := this.GetClosest(request.Id, K)
 	*reply = FindNodeReturn{cur, this.Self}
 	return nil
@@ -77,14 +77,13 @@ type FindValueReturn struct {
 }
 
 func (this *Node) RPCFindValue(request *FindValueRequest, reply *FindValueReturn) error {
-	this.update(request.Sender)
+	go this.update(request.Sender)
 
 	if _, ok := this.data[request.Key]; ok {
 		*reply = FindValueReturn{nil, this.Self, this.data[request.Key]}
 		return nil
 	}
-	var tmp FindNodeReturn
-	err := this.RPCFindNode(&FindNodeRequest{request.Sender, request.Id}, &tmp)
-	*reply = FindValueReturn{tmp.Closest, this.Self, ""}
-	return err
+	cur := this.GetClosest(request.Id, K)
+	*reply = FindValueReturn{cur, this.Self, ""}
+	return nil
 }

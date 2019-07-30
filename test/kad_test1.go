@@ -33,11 +33,12 @@ const SIZE = 100
 
 func main() {
 	//create & join
-	var node [SIZE] Kademlia.Node
+	var node [SIZE]Kademlia.Node
 	for i := 0; i < SIZE; i++ {
 		node[i].Create(DHT.GetLocalAddress() + ":" + strconv.Itoa(i+2000))
 		node[i].Run()
 	}
+
 	for i := 1; i < SIZE; i++ {
 		node[i].Join(node[0].Self.IPAddr)
 	}
@@ -46,7 +47,7 @@ func main() {
 	}
 
 	//put
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		fmt.Println("Putting", i)
 		node[rand.Intn(SIZE)].Put(strconv.Itoa(i), strconv.Itoa(i))
 	}
@@ -55,7 +56,7 @@ func main() {
 	}
 
 	//get
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		fmt.Println("Getting", i)
 		ok, val := node[rand.Intn(SIZE)].Get(strconv.Itoa(i))
 		if (!ok) || val != strconv.Itoa(i) {
