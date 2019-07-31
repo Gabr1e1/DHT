@@ -121,9 +121,9 @@ func (e *error) initInfo(msg string, failCnt int, testCnt int) {
 
 func (e *error) printlnError() {
 	if e.cnt > 0 {
-		red.Printf("%s error : %.4f\n", e.e, float64(e.cnt)/float64(e.all))
+		fmt.Printf("%s error : %.4f\n", e.e, float64(e.cnt)/float64(e.all))
 	} else {
-		green.Printf("%s Passed\n", e.e)
+		fmt.Printf("%s Passed\n", e.e)
 	}
 }
 

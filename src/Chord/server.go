@@ -43,7 +43,7 @@ func (n *Node) Run() {
 
 func (n *Node) Get(k string) (bool, string) {
 	var val string
-	_ := n.Get_(&k, &val)
+	_ = n.Get_(&k, &val)
 	return val != "", val
 }
 

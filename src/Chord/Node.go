@@ -208,7 +208,9 @@ func (n *Node) FindSuccessor(id *big.Int, reply *InfoType) error {
 
 func (n *Node) DirectGet_(k *string, reply *string) error {
 	id := GetHash(*k)
+	n.mux.Lock()
 	val, ok := n.data[id.String()]
+	n.mux.Unlock()
 	if !ok {
 		return errors.New("can't get")
 	}
@@ -248,7 +250,9 @@ func (n *Node) Get_(k *string, reply *string) error {
 
 func (n *Node) DirectPut_(kv *KVPair, reply *bool) error {
 	id := GetHash(kv.Key)
+	n.mux.Lock()
 	n.data[id.String()] = *kv
+	n.mux.Unlock()
 	*reply = true
 	return nil
 }
@@ -328,14 +332,6 @@ func (n *Node) GetNodeInfo(_ *int, reply *InfoType) error {
 	return nil
 }
 
-func (n *Node) DirectPut(KV *KVPair, reply *int) error {
-	n.mux.Lock()
-	var t = GetHash(KV.Key)
-	n.data[t.String()] = *KV
-	n.mux.Unlock()
-	return nil
-}
-
 func (n *Node) TransferData(replace *InfoType, reply *int) error {
 	//fmt.Println("Transfer Data", n.Info.IPAddr)
 	if replace.IPAddr == "" {
@@ -353,7 +349,7 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 		t.SetString(hashKey, 10)
 		if checkBetween(n.Info.NodeNum, replace.NodeNum, &t) {
 			var tmp int
-			err := client.Call("Node.DirectPut", &KV, &tmp)
+			err := client.Call("Node.DirectPut_", &KV, &tmp)
 			if err != nil {
 				n.mux.Unlock()
 				_ = client.Close()
@@ -377,7 +373,7 @@ func (n *Node) TransferDataForce(replace *InfoType, reply *int) error {
 	n.mux.Lock()
 	for _, KV := range n.data {
 		var tmp int
-		err := client.Call("Node.DirectPut", &KV, &tmp)
+		err := client.Call("Node.DirectPut_", &KV, &tmp)
 		if err != nil {
 			n.mux.Unlock()
 			_ = client.Close()
@@ -448,7 +444,6 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 		n.Predecessor = copyInfo(*other)
 		fmt.Printf("NOTIFY: %s's predecessor is %s\n", n.Info.IPAddr, other.IPAddr)
 	}
-	n.mux.Unlock()
 	*reply = 0
 	return nil
 }
@@ -492,18 +487,28 @@ func (n *Node) maintain() {
 		if err != nil {
 			continue
 		}
+
+		n.mux.Lock()
+		t := make(map[string]KVPair)
+		for k, v := range n.data {
+			t[k] = v
+		}
+		n.mux.Unlock()
+
 		client, err := n.Connect(n.Successors[0])
 		if err != nil {
 			continue
 		}
-		n.mux.Lock()
-		for _, kv := range n.data {
-			n.mux.Unlock()
+
+		for hash, kv := range t {
+			tmp, _ := new(big.Int).SetString(hash, 10)
+			if !checkBetween(n.Predecessor.NodeNum, n.Info.NodeNum, tmp) {
+				continue
+			}
 			var reply int
-			_ := client.Call("Node.DirectPut", &kv, &reply)
-			n.mux.Lock()
+			go client.Call("Node.DirectPut_", &kv, &reply)
 		}
-		n.mux.Unlock()
-		time.Sleep(100 * time.Millisecond)
+		_ = client.Close()
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
