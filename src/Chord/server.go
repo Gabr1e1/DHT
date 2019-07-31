@@ -13,7 +13,7 @@ func (n *Node) Create_(addr string) {
 	var t = GetHash(addr)
 	n.Info = InfoType{addr, t}
 	n.Predecessor = InfoType{"", big.NewInt(0)}
-	fmt.Println("INFO: ", n.Info)
+	//fmt.Println("INFO: ", n.Info)
 }
 
 func (n *Node) Create() {

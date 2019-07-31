@@ -288,7 +288,8 @@ func (n *Node) Put_(kv *KVPair, reply *bool) error {
 	if err != nil {
 		return err
 	}
-	_ = client.Call("Node.DirectPut_", kv, nil)
+	var tmp bool
+	_ = client.Call("Node.DirectPut_", kv, &tmp)
 	_ = client.Close()
 	return nil
 }
@@ -338,7 +339,8 @@ func (n *Node) Del_(k *string, reply *bool) error {
 	if err != nil {
 		return err
 	}
-	_ = client.Call("Node.DirectDel_", k, nil)
+	var tmp bool
+	_ = client.Call("Node.DirectDel_", k, &tmp)
 	_ = client.Close()
 	return nil
 }
@@ -364,7 +366,8 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 		var t big.Int
 		t.SetString(hashKey, 10)
 		if checkBetween(n.Info.NodeNum, replace.NodeNum, &t) {
-			err := client.Call("Node.DirectPut_", &KV, nil)
+			var tmp bool
+			err := client.Call("Node.DirectPut_", &KV, &tmp)
 			if err != nil {
 				n.mux.Unlock()
 				_ = client.Close()
@@ -387,7 +390,8 @@ func (n *Node) TransferDataForce(replace *InfoType, reply *int) error {
 
 	n.mux.Lock()
 	for _, KV := range n.data {
-		err := client.Call("Node.DirectPut_", &KV, nil)
+		var tmp bool
+		err := client.Call("Node.DirectPut_", &KV, &tmp)
 		if err != nil {
 			n.mux.Unlock()
 			_ = client.Close()
@@ -427,7 +431,7 @@ func (n *Node) stabilize() {
 		n.mux.Lock()
 		if x.NodeNum.Cmp(big.NewInt(0)) != 0 && checkBetween(big.NewInt(1).Add(n.Info.NodeNum, big.NewInt(1)), n.Successors[0].NodeNum, x.NodeNum) {
 			n.Successors[0], n.Finger[0] = copyInfo(x), copyInfo(x)
-			fmt.Printf("STABILIZE: %s's successor is %s\n", n.Info.IPAddr, x.IPAddr)
+			//fmt.Printf("STABILIZE: %s's successor is %s\n", n.Info.IPAddr, x.IPAddr)
 		}
 		n.mux.Unlock()
 		_ = client.Close()
