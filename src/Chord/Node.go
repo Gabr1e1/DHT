@@ -282,6 +282,14 @@ func (n *Node) Put_(kv *KVPair, reply *bool) error {
 		}
 		_ = client.Close()
 	}
+
+	//replicate
+	client, err := n.Connect(n.Successors[0])
+	if err != nil {
+		return err
+	}
+	_ = client.Call("Node.DirectPut_", kv, nil)
+	_ = client.Close()
 	return nil
 }
 
@@ -324,6 +332,14 @@ func (n *Node) Del_(k *string, reply *bool) error {
 		}
 		_ = client.Close()
 	}
+
+	//delete replicate
+	client, err := n.Connect(n.Successors[0])
+	if err != nil {
+		return err
+	}
+	_ = client.Call("Node.DirectDel_", k, nil)
+	_ = client.Close()
 	return nil
 }
 
@@ -348,8 +364,7 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 		var t big.Int
 		t.SetString(hashKey, 10)
 		if checkBetween(n.Info.NodeNum, replace.NodeNum, &t) {
-			var tmp bool
-			err := client.Call("Node.DirectPut_", &KV, &tmp)
+			err := client.Call("Node.DirectPut_", &KV, nil)
 			if err != nil {
 				n.mux.Unlock()
 				_ = client.Close()
@@ -372,8 +387,7 @@ func (n *Node) TransferDataForce(replace *InfoType, reply *int) error {
 
 	n.mux.Lock()
 	for _, KV := range n.data {
-		var tmp int
-		err := client.Call("Node.DirectPut_", &KV, &tmp)
+		err := client.Call("Node.DirectPut_", &KV, nil)
 		if err != nil {
 			n.mux.Unlock()
 			_ = client.Close()
@@ -449,8 +463,7 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 			if err != nil {
 				return err
 			}
-			var tmp int
-			err = client.Call("Node.Maintain", 0, &tmp)
+			err = client.Call("Node.Maintain", 0, nil)
 			if err != nil {
 				fmt.Println(n.Info, "Can't call maintain", err)
 			}

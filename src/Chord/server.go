@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net"
 	"net/rpc"
+	"time"
 )
 
 func (n *Node) Create_(addr string) {
@@ -47,6 +48,7 @@ func (n *Node) Get(k string) (bool, string) {
 		if val != "" {
 			return val != "", val
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
 	return val != "", val
 }
