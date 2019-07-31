@@ -38,12 +38,16 @@ func (n *Node) Run() {
 	go n.stabilize()
 	go n.fixFingers()
 	go n.checkPredecessor()
-	go n.maintain()
 }
 
 func (n *Node) Get(k string) (bool, string) {
 	var val string
-	_ = n.Get_(&k, &val)
+	for i := 0; i < maxTry; i++ {
+		_ = n.Get_(&k, &val)
+		if val != "" {
+			return val != "", val
+		}
+	}
 	return val != "", val
 }
 

@@ -348,7 +348,7 @@ func (n *Node) TransferData(replace *InfoType, reply *int) error {
 		var t big.Int
 		t.SetString(hashKey, 10)
 		if checkBetween(n.Info.NodeNum, replace.NodeNum, &t) {
-			var tmp int
+			var tmp bool
 			err := client.Call("Node.DirectPut_", &KV, &tmp)
 			if err != nil {
 				n.mux.Unlock()
@@ -442,9 +442,23 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 	n.mux.Lock()
 	if n.Predecessor.IPAddr == "" || checkBetween(big.NewInt(1).Add(n.Predecessor.NodeNum, big.NewInt(1)), n.Info.NodeNum, other.NodeNum) {
 		n.Predecessor = copyInfo(*other)
-		fmt.Printf("NOTIFY: %s's predecessor is %s\n", n.Info.IPAddr, other.IPAddr)
+		n.mux.Unlock()
+		//fmt.Printf("NOTIFY: %s's predecessor is %s\n", n.Info.IPAddr, other.IPAddr)
+		if n.Predecessor.IPAddr != n.Info.IPAddr {
+			client, err := n.Connect(n.Predecessor)
+			if err != nil {
+				return err
+			}
+			var tmp int
+			err = client.Call("Node.Maintain", 0, &tmp)
+			if err != nil {
+				fmt.Println(n.Info, "Can't call maintain", err)
+			}
+			_ = client.Close()
+		}
+	} else {
+		n.mux.Unlock()
 	}
-	*reply = 0
 	return nil
 }
 
@@ -481,34 +495,32 @@ func (n *Node) fixFingers() {
 	}
 }
 
-func (n *Node) maintain() {
-	for {
-		err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
-		if err != nil {
-			continue
-		}
-
-		n.mux.Lock()
-		t := make(map[string]KVPair)
-		for k, v := range n.data {
-			t[k] = v
-		}
-		n.mux.Unlock()
-
-		client, err := n.Connect(n.Successors[0])
-		if err != nil {
-			continue
-		}
-
-		for hash, kv := range t {
-			tmp, _ := new(big.Int).SetString(hash, 10)
-			if !checkBetween(n.Predecessor.NodeNum, n.Info.NodeNum, tmp) {
-				continue
-			}
-			var reply int
-			go client.Call("Node.DirectPut_", &kv, &reply)
-		}
-		_ = client.Close()
-		time.Sleep(1000 * time.Millisecond)
+func (n *Node) Maintain(_ *int, _ *int) error {
+	err := n.FindFirstSuccessorAlive(nil, &n.Successors[0])
+	if err != nil {
+		return nil
 	}
+
+	n.mux.Lock()
+	t := make(map[string]KVPair)
+	for k, v := range n.data {
+		t[k] = v
+	}
+	n.mux.Unlock()
+
+	client, err := n.Connect(n.Successors[0])
+	if err != nil {
+		return nil
+	}
+
+	for hash, kv := range t {
+		tmp, _ := new(big.Int).SetString(hash, 10)
+		if !checkBetween(n.Predecessor.NodeNum, n.Info.NodeNum, tmp) {
+			continue
+		}
+		var reply bool
+		go client.Call("Node.DirectPut_", &kv, &reply)
+	}
+	_ = client.Close()
+	return nil
 }
