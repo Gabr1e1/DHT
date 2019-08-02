@@ -15,6 +15,7 @@ const alpha = 3
 const M = 160
 const expireTime = time.Hour * 24
 const checkInterval = time.Hour
+const republishInterval = time.Hour
 
 type Contact struct {
 	IPAddr  string
@@ -31,7 +32,9 @@ type Node struct {
 	Self       Contact
 	data       map[string]string
 	expireTime map[string]time.Time //Data automatically expires after Expire time
-	dataMux    sync.RWMutex
+	republish  map[string]bool
+
+	dataMux sync.RWMutex
 
 	server   *rpc.Server
 	listener net.Listener
@@ -40,31 +43,6 @@ type Node struct {
 func (this *Node) GetContact(_ *int, reply *Contact) error {
 	*reply = this.Self
 	return nil
-}
-
-func (this *Node) expireCheck() {
-	for {
-		this.check()
-		time.Sleep(checkInterval)
-	}
-}
-
-func (this *Node) check() {
-	this.dataMux.RLock()
-	for key := range this.data {
-		if this.expireTime[key].Before(time.Now()) {
-			this.dataMux.RUnlock()
-			this.dataMux.Lock()
-
-			delete(this.data, key)
-			delete(this.expireTime, key)
-
-			this.dataMux.Unlock()
-			this.dataMux.RLock()
-		}
-	}
-	this.dataMux.RUnlock()
-
 }
 
 func (this *Node) Create(addr string) {
@@ -244,7 +222,66 @@ func (this *Node) Put(key string, value string) bool {
 	return true
 }
 
+func (this *Node) Republish(key string, value string) bool {
+	kClosest := this.FindNode(DHT.GetHash(key))
+	//use existing expire time
+	expireTime := this.expireTime[key]
+
+	for i := range kClosest {
+		client, err := this.Connect(kClosest[i])
+		if err != nil {
+			continue
+		}
+		var reply StoreReturn
+		err = client.Call("Node.RPCStore", &StoreRequest{this.Self, KVPair{key, value}, expireTime}, &reply)
+		_ = client.Close()
+		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Self) {
+			return false
+		}
+	}
+	return true
+}
+
 func (this *Node) Get(key string) (bool, string) {
 	val := this.FindValue(DHT.GetHash(key), key)
 	return val != "", val
+}
+
+func (this *Node) expireCheck() {
+	for {
+		this.check()
+		time.Sleep(checkInterval)
+	}
+}
+
+func (this *Node) check() {
+	this.dataMux.RLock()
+	for key := range this.data {
+		if this.expireTime[key].Before(time.Now()) {
+			this.dataMux.RUnlock()
+			this.dataMux.Lock()
+
+			delete(this.data, key)
+			delete(this.expireTime, key)
+
+			this.dataMux.Unlock()
+			this.dataMux.RLock()
+		}
+	}
+	this.dataMux.RUnlock()
+
+}
+
+func (this *Node) republishKey() {
+	for {
+		for key, value := range this.data {
+			_, ok := this.republish[key]
+			if ok && this.republish[key] == false {
+				this.republish[key] = true
+				continue
+			}
+			this.Republish(key, value)
+		}
+		time.Sleep(republishInterval)
+	}
 }

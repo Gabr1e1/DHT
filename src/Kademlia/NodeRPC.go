@@ -41,6 +41,8 @@ func (this *Node) RPCStore(request *StoreRequest, reply *StoreReturn) error {
 
 	this.data[request.Data.Key] = request.Data.Value
 	this.expireTime[request.Data.Key] = request.Expire
+	this.republish[request.Data.Key] = false
+
 	*reply = StoreReturn{true, this.Self}
 	return nil
 }
