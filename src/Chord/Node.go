@@ -220,10 +220,14 @@ func (n *Node) DirectGet_(k *string, reply *string) error {
 
 func (n *Node) Get_(k *string, reply *string) error {
 	id := GetHash(*k)
+	n.mux.Lock()
 	if val, ok := n.data[id.String()]; ok {
 		*reply = val.Value
+		n.mux.Unlock()
 		return nil
 	}
+	n.mux.Unlock()
+
 	var p InfoType
 	err := n.FindSuccessor(id, &p)
 	if err != nil {
