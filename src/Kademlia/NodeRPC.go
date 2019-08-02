@@ -68,8 +68,6 @@ type FindValueRequest struct {
 	Key    string
 }
 
-//type Set = map[string]struct{}
-
 type FindValueReturn struct {
 	Closest []Contact
 	Self    Contact

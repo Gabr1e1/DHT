@@ -47,7 +47,7 @@ func main() {
 	}
 
 	//put
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		fmt.Println("Putting", i)
 		node[rand.Intn(SIZE)].Put(strconv.Itoa(i), strconv.Itoa(i))
 	}
@@ -56,7 +56,7 @@ func main() {
 	}
 
 	//get
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		fmt.Println("Getting", i)
 		ok, val := node[rand.Intn(SIZE)].Get(strconv.Itoa(i))
 		if (!ok) || val != strconv.Itoa(i) {

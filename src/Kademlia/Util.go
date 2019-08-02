@@ -6,10 +6,8 @@ import (
 	"sort"
 )
 
-func (this *Node) getDis(contact Contact) *big.Int {
-	var z big.Int
-	z.Xor(this.Self.NodeNum, contact.NodeNum)
-	return &z
+func getDis(a *big.Int, b *big.Int) *big.Int {
+	return new(big.Int).Xor(a, b)
 }
 
 func (this *Node) CalcPrefix(num *big.Int) int {
@@ -34,9 +32,9 @@ func verifyIdentity(A Contact, B Contact) bool {
 	return A.NodeNum.Cmp(B.NodeNum) == 0 && A.IPAddr == B.IPAddr
 }
 
-func (this *Node) GetClosestInList(num int, contacts []Contact) []Contact {
+func GetClosestInList(id *big.Int, num int, contacts []Contact) []Contact {
 	sort.Slice(contacts, func(i, j int) bool {
-		return this.getDis(contacts[i]).Cmp(this.getDis(contacts[j])) < 0
+		return getDis(id, contacts[i].NodeNum).Cmp(getDis(id, contacts[j].NodeNum)) < 0
 	})
 	if len(contacts) > num {
 		return contacts[0:num]

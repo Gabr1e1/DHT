@@ -1,4 +1,3 @@
-//TODO: Set Appropriate expire time
 package Kademlia
 
 import (
@@ -15,6 +14,7 @@ import (
 const alpha = 3
 const M = 160
 const expireTime = time.Hour * 24
+const checkInterval = time.Hour
 
 type Contact struct {
 	IPAddr  string
@@ -37,21 +37,19 @@ type Node struct {
 	listener net.Listener
 }
 
-type set = map[string]struct{}
-
 func (this *Node) GetContact(_ *int, reply *Contact) error {
 	*reply = this.Self
 	return nil
 }
 
-func (this *Node) check() {
+func (this *Node) expireCheck() {
 	for {
-		this.checkExpire()
-		time.Sleep(time.Second)
+		this.check()
+		time.Sleep(checkInterval)
 	}
 }
 
-func (this *Node) checkExpire() {
+func (this *Node) check() {
 	this.dataMux.RLock()
 	for key := range this.data {
 		if this.expireTime[key].Before(time.Now()) {
@@ -89,6 +87,7 @@ func (this *Node) Run() {
 		log.Fatal("listen error: ", err)
 	}
 	go this.server.Accept(this.listener)
+	go this.expireCheck()
 }
 
 func (this *Node) Join(addr string) {
@@ -139,7 +138,7 @@ func (this *Node) GetClosest(key *big.Int, num int) []Contact {
 			}
 			t = append(t, this.bucket[i].contacts...)
 		}
-		cur = append(cur, this.GetClosestInList(num-len(cur), t)...)
+		cur = append(cur, GetClosestInList(key, num-len(cur), t)...)
 	}
 	return cur
 }
@@ -180,7 +179,7 @@ func (this *Node) FindNode(hashId *big.Int) []Contact {
 		ansList = append(ansList, v)
 	}
 	//fmt.Println(ansList)
-	return this.GetClosestInList(K, ansList)
+	return GetClosestInList(hashId, K, ansList)
 }
 
 func (this *Node) FindValue(hashId *big.Int, key string) string {
@@ -190,10 +189,9 @@ func (this *Node) FindValue(hashId *big.Int, key string) string {
 	}
 
 	cur := this.GetClosest(hashId, alpha)
-	var ans map[string]Contact
-	ans = make(map[string]Contact)
+	ans := make(map[string]Contact)
 	for len(cur) > 0 {
-		fmt.Println(len(cur), cur)
+		//fmt.Println(len(cur), cur)
 		contact := cur[0]
 		cur = cur[1:]
 
@@ -229,7 +227,7 @@ func (this *Node) FindValue(hashId *big.Int, key string) string {
 
 func (this *Node) Put(key string, value string) bool {
 	kClosest := this.FindNode(DHT.GetHash(key))
-	fmt.Println("PUT", key, kClosest)
+	//fmt.Println("PUT", key, kClosest)
 	expireTime := time.Now().Add(expireTime)
 	for i := range kClosest {
 		client, err := this.Connect(kClosest[i])
