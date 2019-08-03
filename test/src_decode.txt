@@ -1,0 +1,29 @@
+map[
+files:[
+map[length:6394 path:[app app_client.go]] 
+map[length:1895 path:[app app_main.go]] 
+map[length:1071 path:[app app_server.go]] 
+map[length:15669 path:[chord chordNode.go]] 
+map[length:10735 path:[chord client.go]]
+ map[length:1078 path:[chord mynet.go]] 
+map[length:904 path:[common interface.go]] 
+map[length:1027 path:[common userdef.go]] 
+map[length:2788 path:[kademlia client.go]] 
+map[length:689 path:[kademlia contact.go]] 
+map[length:1875 path:[kademlia lru.go]] 
+map[length:10626 path:[kademlia node.go]] 
+map[length:1432 path:[kademlia priorityQueue.go]] 
+map[length:3175 path:[kademlia routingTable.go]] 
+map[length:4778 path:[kademlia store.go]] 
+map[length:737 path:[test appComplexTest.go]] 
+map[length:1165 path:[test appTest.go]] 
+map[length:4827 path:[test test.go]] 
+map[length:309 path:[test testFileOp.go]] 
+map[length:2155 path:[test test_lrh.go]] 
+map[length:7171 path:[torrent-kad client.go]] 
+map[length:2244 path:[torrent-kad decoder.go]] 
+map[length:2083 path:[torrent-kad peer.go]] 
+map[length:4135 path:[torrent-kad torrent.go]]] 
+name:src 
+piece length:262144 
+pieces:?J<  Gr      _2y]

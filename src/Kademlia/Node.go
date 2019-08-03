@@ -32,7 +32,7 @@ type Node struct {
 	Self       Contact
 	data       map[string]string
 	expireTime map[string]time.Time //Data automatically expires after Expire time
-	republish  map[string]bool
+	republish  map[string]bool //whether it needs to be republished this hour
 
 	dataMux sync.RWMutex
 
@@ -52,6 +52,8 @@ func (this *Node) Create(addr string) {
 	}
 	this.data = make(map[string]string)
 	this.expireTime = make(map[string]time.Time)
+	this.republish = make(map[string]bool)
+
 	fmt.Println("Node Created", this.Self)
 }
 

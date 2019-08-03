@@ -1,6 +1,7 @@
 package Kademlia
 
 import (
+	"math/rand"
 	"sync"
 )
 
@@ -40,9 +41,9 @@ func (this *KBucket) insert(node *Node, contact Contact) {
 
 func (this *KBucket) Get(K int) []Contact {
 	this.mux.Lock()
-	//rand.Shuffle(len(this.contacts), func(i, j int) {
-	//	this.contacts[i], this.contacts[j] = this.contacts[j], this.contacts[i]
-	//})
+	rand.Shuffle(len(this.contacts), func(i, j int) {
+		this.contacts[i], this.contacts[j] = this.contacts[j], this.contacts[i]
+	})
 	if len(this.contacts) < K {
 		this.mux.Unlock()
 		return this.contacts
