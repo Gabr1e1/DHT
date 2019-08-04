@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net"
 	"net/rpc"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -59,12 +60,13 @@ func (this *Node) Create(addr string) {
 	fmt.Println("Node Created", this.Self)
 }
 
-func (this *Node) Run() {
+func (this *Node) Run(port int) {
 	this.server = rpc.NewServer()
 	_ = this.server.Register(this)
 
 	var err error = nil
-	this.listener, err = net.Listen("tcp", this.Self.Ip)
+	fmt.Println("Listening on: ", GetLocalAddress()+":"+strconv.Itoa(port))
+	this.listener, err = net.Listen("tcp", GetLocalAddress()+":"+strconv.Itoa(port))
 	if err != nil {
 		log.Fatal("listen error: ", err)
 	}
@@ -242,7 +244,7 @@ func (this *Node) Get(key string) (bool, []string) {
 	for k := range val {
 		ret = append(ret, k)
 	}
-	return val != nil, ret
+	return len(ret) != 0, ret
 }
 
 func (this *Node) expireCheck() {
@@ -280,8 +282,8 @@ func (this *Node) replicateKey() {
 				if ok && this.republish[KVPair{key, value}] == false {
 					this.republish[KVPair{key, value}] = true
 					continue
-					this.Replicate(key, value)
 				}
+				this.Replicate(key, value)
 			}
 		}
 		time.Sleep(republishInterval)

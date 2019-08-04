@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -21,7 +22,8 @@ func main() {
 			cur = new(Kademlia.Node)
 			cur.Create(words[1])
 		case "run":
-			cur.Run()
+			port, _ := strconv.Atoi(words[1])
+			cur.Run(port)
 		case "join":
 			cur.Join(words[1])
 		case "put":
