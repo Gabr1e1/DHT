@@ -31,7 +31,7 @@ type Node struct {
 	bucket     []KBucket
 	Self       Contact
 	data       map[string]string
-	expireTime map[string]time.Time //Data automatically expires after Expire time
+	expireTime map[string]time.Time //Pair automatically expires after Expire time
 	republish  map[string]bool      //whether it needs to be republished this hour
 
 	dataMux sync.RWMutex
@@ -71,19 +71,7 @@ func (this *Node) Run() {
 }
 
 func (this *Node) Join(addr string) {
-	//get node info using addr
-	client, err := this.Connect(Contact{nil, addr})
-	if err != nil {
-		fmt.Println(this.Self, "Can't Join", addr)
-		return
-	}
-	var other Contact
-	err = client.Call("Node.GetContact", 0, &other)
-	_ = client.Close()
-	if err != nil {
-		fmt.Println(this.Self, "Can't get contact info", addr)
-		return
-	}
+	other := Contact{DHT.GetHash(addr), addr}
 
 	//insert node into the appropriate bucket list
 	l := this.CalcPrefix(other.Id)
@@ -164,10 +152,12 @@ func (this *Node) FindNode(hashId *big.Int) []Contact {
 	return GetClosestInList(hashId, K, ansList)
 }
 
-func (this *Node) FindValue(hashId *big.Int, key string) string {
+func (this *Node) FindValue(hashId *big.Int, key string) Set {
 	//Try to find value in itself
 	if _, ok := this.data[key]; ok {
-		return this.data[key]
+		ret := make(Set)
+		ret[this.data[key]] = struct{}{}
+		return ret
 	}
 
 	cur := this.GetClosest(hashId, alpha)
@@ -190,7 +180,7 @@ func (this *Node) FindValue(hashId *big.Int, key string) string {
 			continue
 		}
 
-		if reply.Val != "" {
+		if reply.Val != nil {
 			return reply.Val
 		}
 
@@ -204,7 +194,7 @@ func (this *Node) FindValue(hashId *big.Int, key string) string {
 			cur = append(cur, i)
 		}
 	}
-	return ""
+	return nil
 }
 
 func (this *Node) Put(key string, value string) bool {
@@ -238,7 +228,7 @@ func (this *Node) Republish(key string, value string) bool {
 		}
 		var reply StoreReturn
 		err = client.Call("Node.RPCStore", &StoreRequest{this.Self, KVPair{key, value}, expireTime}, &reply)
-		_ = client.Close()
+		_ = client.Close(
 		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Header) {
 			return false
 		}
@@ -246,9 +236,13 @@ func (this *Node) Republish(key string, value string) bool {
 	return true
 }
 
-func (this *Node) Get(key string) (bool, string) {
+func (this *Node) Get(key string) (bool, []string) {
 	val := this.FindValue(DHT.GetHash(key), key)
-	return val != "", val
+	ret := make([]string, 0)
+	for k := range val {
+		ret = append(ret, k)
+	}
+	return val != nil, ret
 }
 
 func (this *Node) expireCheck() {

@@ -29,7 +29,7 @@ func (this *Node) RPCPing(sender *Contact, reply *PingReturn) error {
 
 type StoreRequest struct {
 	Header Contact
-	Data   KVPair
+	Pair   KVPair //stupid name thanks to jhy
 	Expire time.Time
 }
 
@@ -41,9 +41,9 @@ type StoreReturn struct {
 func (this *Node) RPCStore(request *StoreRequest, reply *StoreReturn) error {
 	go this.update(request.Header)
 
-	this.data[request.Data.Key] = request.Data.Val
-	this.expireTime[request.Data.Key] = request.Expire
-	this.republish[request.Data.Key] = false
+	this.data[request.Pair.Key] = request.Pair.Val
+	this.expireTime[request.Pair.Key] = request.Expire
+	this.republish[request.Pair.Key] = false
 
 	*reply = StoreReturn{this.Self, true}
 	return nil
@@ -68,24 +68,28 @@ func (this *Node) RPCFindNode(request *FindNodeRequest, reply *FindNodeReturn) e
 
 type FindValueRequest struct {
 	Header Contact
-	Id     *big.Int
+	HashId *big.Int
 	Key    string
 }
 
+type Set map[string]struct{}
+
 type FindValueReturn struct {
+	Header  Contact
 	Closest []Contact
-	Self    Contact
-	Val     string
+	Val     Set
 }
 
 func (this *Node) RPCFindValue(request *FindValueRequest, reply *FindValueReturn) error {
 	go this.update(request.Header)
 
 	if _, ok := this.data[request.Key]; ok {
-		*reply = FindValueReturn{nil, this.Self, this.data[request.Key]}
+		set := make(Set)
+		set[request.Key] = struct{}{}
+		*reply = FindValueReturn{this.Self, nil, set}
 		return nil
 	}
-	cur := this.GetClosest(request.Id, K)
-	*reply = FindValueReturn{cur, this.Self, ""}
+	cur := this.GetClosest(request.HashId, K)
+	*reply = FindValueReturn{this.Self, cur, nil}
 	return nil
 }

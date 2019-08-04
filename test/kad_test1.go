@@ -59,7 +59,7 @@ func main() {
 	for i := 0; i < 1000; i++ {
 		fmt.Println("Getting", i)
 		ok, val := node[rand.Intn(SIZE)].Get(strconv.Itoa(i))
-		if (!ok) || val != strconv.Itoa(i) {
+		if (!ok) || val[0] != strconv.Itoa(i) {
 			log.Fatal("FUCK, can't get")
 		}
 	}

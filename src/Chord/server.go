@@ -109,7 +109,7 @@ func (n *Node) Dump() {
 	fmt.Println("Num: ", n.Info.NodeNum)
 	fmt.Println("Predecessor: ", n.Predecessor)
 	fmt.Println("Successor: ", n.Successors)
-	fmt.Println("Data: ")
+	fmt.Println("Pair: ")
 	for _, v := range n.data {
 		fmt.Print(v)
 	}

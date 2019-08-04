@@ -11,7 +11,7 @@ func getDis(a *big.Int, b *big.Int) *big.Int {
 }
 
 func (this *Node) CalcPrefix(num *big.Int) int {
-	//fmt.Println(this.Header.Id.String(), num.String())
+	//fmt.Println(this.Header.HashId.String(), num.String())
 	if this.Self.Id.Cmp(num) == 0 {
 		return M
 	}

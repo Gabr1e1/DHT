@@ -349,7 +349,7 @@ func (n *Node) GetNodeInfo(_ *int, reply *InfoType) error {
 }
 
 func (n *Node) TransferData(replace *InfoType, reply *int) error {
-	//fmt.Println("Transfer Data", n.Info.Ip)
+	//fmt.Println("Transfer Pair", n.Info.Ip)
 	if replace.IPAddr == "" {
 		return nil
 	}
