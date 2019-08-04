@@ -27,12 +27,14 @@ type KVPair struct {
 	Val string
 }
 
+type Set map[string]struct{} //F**k, don't want to use this, but somehow have to
+
 type Node struct {
 	bucket     []KBucket
 	Self       Contact
-	data       map[string]string
-	expireTime map[string]time.Time //Pair automatically expires after Expire time
-	republish  map[string]bool      //whether it needs to be republished this hour
+	data       map[string]Set
+	expireTime map[KVPair]time.Time //Pair automatically expires after Expire time
+	republish  map[KVPair]bool      //whether it needs to be republished this hour
 
 	dataMux sync.RWMutex
 
@@ -50,9 +52,9 @@ func (this *Node) Create(addr string) {
 	for i := 0; i <= M; i++ {
 		this.bucket = append(this.bucket, KBucket{})
 	}
-	this.data = make(map[string]string)
-	this.expireTime = make(map[string]time.Time)
-	this.republish = make(map[string]bool)
+	this.data = make(map[string]Set)
+	this.expireTime = make(map[KVPair]time.Time)
+	this.republish = make(map[KVPair]bool)
 
 	fmt.Println("Node Created", this.Self)
 }
@@ -155,9 +157,7 @@ func (this *Node) FindNode(hashId *big.Int) []Contact {
 func (this *Node) FindValue(hashId *big.Int, key string) Set {
 	//Try to find value in itself
 	if _, ok := this.data[key]; ok {
-		ret := make(Set)
-		ret[this.data[key]] = struct{}{}
-		return ret
+		return this.data[key]
 	}
 
 	cur := this.GetClosest(hashId, alpha)
@@ -216,10 +216,10 @@ func (this *Node) Put(key string, value string) bool {
 	return true
 }
 
-func (this *Node) Republish(key string, value string) bool {
+func (this *Node) Replicate(key string, value string) bool {
 	kClosest := this.FindNode(DHT.GetHash(key))
 	//use existing expire time
-	expireTime := this.expireTime[key]
+	expireTime := this.expireTime[KVPair{key, value}]
 
 	for i := range kClosest {
 		client, err := this.Connect(kClosest[i])
@@ -228,7 +228,7 @@ func (this *Node) Republish(key string, value string) bool {
 		}
 		var reply StoreReturn
 		err = client.Call("Node.RPCStore", &StoreRequest{this.Self, KVPair{key, value}, expireTime}, &reply)
-		_ = client.Close(
+		_ = client.Close()
 		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Header) {
 			return false
 		}
@@ -254,31 +254,35 @@ func (this *Node) expireCheck() {
 
 func (this *Node) check() {
 	this.dataMux.RLock()
-	for key := range this.data {
-		if this.expireTime[key].Before(time.Now()) {
-			this.dataMux.RUnlock()
-			this.dataMux.Lock()
+	for key, set := range this.data {
+		for value := range set {
+			if this.expireTime[KVPair{key, value}].Before(time.Now()) {
+				this.dataMux.RUnlock()
+				this.dataMux.Lock()
 
-			delete(this.data, key)
-			delete(this.expireTime, key)
+				delete(this.data, key)
+				delete(this.expireTime, KVPair{key, value})
 
-			this.dataMux.Unlock()
-			this.dataMux.RLock()
+				this.dataMux.Unlock()
+				this.dataMux.RLock()
+			}
 		}
 	}
 	this.dataMux.RUnlock()
 
 }
 
-func (this *Node) republishKey() {
+func (this *Node) replicateKey() {
 	for {
-		for key, value := range this.data {
-			_, ok := this.republish[key]
-			if ok && this.republish[key] == false {
-				this.republish[key] = true
-				continue
+		for key, set := range this.data {
+			for value := range set {
+				_, ok := this.republish[KVPair{key, value}]
+				if ok && this.republish[KVPair{key, value}] == false {
+					this.republish[KVPair{key, value}] = true
+					continue
+					this.Replicate(key, value)
+				}
 			}
-			this.Republish(key, value)
 		}
 		time.Sleep(republishInterval)
 	}

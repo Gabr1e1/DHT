@@ -47,20 +47,22 @@ func main() {
 	}
 
 	//put
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		fmt.Println("Putting", i)
 		node[rand.Intn(SIZE)].Put(strconv.Itoa(i), strconv.Itoa(i))
+		node[rand.Intn(SIZE)].Put(strconv.Itoa(i), strconv.Itoa(i+1))
 	}
 	for i := 0; i < SIZE; i++ {
 		node[i].Dump()
 	}
 
 	//get
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		fmt.Println("Getting", i)
 		ok, val := node[rand.Intn(SIZE)].Get(strconv.Itoa(i))
-		if (!ok) || val[0] != strconv.Itoa(i) {
+		if !ok {
 			log.Fatal("FUCK, can't get")
 		}
+		fmt.Println(val)
 	}
 }

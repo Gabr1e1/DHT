@@ -41,9 +41,13 @@ type StoreReturn struct {
 func (this *Node) RPCStore(request *StoreRequest, reply *StoreReturn) error {
 	go this.update(request.Header)
 
-	this.data[request.Pair.Key] = request.Pair.Val
-	this.expireTime[request.Pair.Key] = request.Expire
-	this.republish[request.Pair.Key] = false
+	if this.data[request.Pair.Key] == nil { //empty set, need to initialize it
+		this.data[request.Pair.Key] = make(Set)
+	}
+
+	this.data[request.Pair.Key][request.Pair.Val] = struct{}{}
+	this.expireTime[KVPair{request.Pair.Key, request.Pair.Val}] = request.Expire
+	this.republish[KVPair{request.Pair.Key, request.Pair.Val}] = false
 
 	*reply = StoreReturn{this.Self, true}
 	return nil
@@ -72,8 +76,6 @@ type FindValueRequest struct {
 	Key    string
 }
 
-type Set map[string]struct{}
-
 type FindValueReturn struct {
 	Header  Contact
 	Closest []Contact
@@ -84,9 +86,7 @@ func (this *Node) RPCFindValue(request *FindValueRequest, reply *FindValueReturn
 	go this.update(request.Header)
 
 	if _, ok := this.data[request.Key]; ok {
-		set := make(Set)
-		set[request.Key] = struct{}{}
-		*reply = FindValueReturn{this.Self, nil, set}
+		*reply = FindValueReturn{this.Self, nil, this.data[request.Key]}
 		return nil
 	}
 	cur := this.GetClosest(request.HashId, K)
