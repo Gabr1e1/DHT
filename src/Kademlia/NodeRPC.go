@@ -1,3 +1,5 @@
+//TODO: Implement republish
+
 package Kademlia
 
 import (
@@ -53,14 +55,14 @@ type FindNodeRequest struct {
 }
 
 type FindNodeReturn struct {
-	Closest []Contact
 	Self    Contact
+	Closest []Contact
 }
 
 func (this *Node) RPCFindNode(request *FindNodeRequest, reply *FindNodeReturn) error {
 	go this.update(request.Sender)
 	cur := this.GetClosest(request.Id, K)
-	*reply = FindNodeReturn{cur, this.Self}
+	*reply = FindNodeReturn{this.Self, cur}
 	return nil
 }
 

@@ -18,8 +18,8 @@ const checkInterval = time.Hour
 const republishInterval = time.Hour
 
 type Contact struct {
-	IPAddr  string
 	NodeNum *big.Int
+	IPAddr  string
 }
 
 type KVPair struct {
@@ -32,7 +32,7 @@ type Node struct {
 	Self       Contact
 	data       map[string]string
 	expireTime map[string]time.Time //Data automatically expires after Expire time
-	republish  map[string]bool //whether it needs to be republished this hour
+	republish  map[string]bool      //whether it needs to be republished this hour
 
 	dataMux sync.RWMutex
 
@@ -46,7 +46,7 @@ func (this *Node) GetContact(_ *int, reply *Contact) error {
 }
 
 func (this *Node) Create(addr string) {
-	this.Self = Contact{addr, DHT.GetHash(addr)}
+	this.Self = Contact{DHT.GetHash(addr), addr}
 	for i := 0; i <= M; i++ {
 		this.bucket = append(this.bucket, KBucket{})
 	}
@@ -72,7 +72,7 @@ func (this *Node) Run() {
 
 func (this *Node) Join(addr string) {
 	//get node info using addr
-	client, err := this.Connect(Contact{addr, nil})
+	client, err := this.Connect(Contact{nil, addr})
 	if err != nil {
 		fmt.Println(this.Self, "Can't Join", addr)
 		return

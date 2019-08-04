@@ -41,9 +41,20 @@ func addHash(str *string, data *[]byte, path string) {
 	}
 }
 
-func EncodeNum(x int) {
-
+func EncodeStr(x string) []byte {
+	ret := fmt.Sprintf("%d", len(x)) + x
+	return []byte(ret)
 }
+
+func EncodeNum(x int) []byte {
+	ret := fmt.Sprintf("i%de", x)
+	return []byte(ret)
+}
+
+func EncodeList([]interface{}) []byte {
+	
+}
+
 func Encode(enc interface{}) []byte {
 
 }
