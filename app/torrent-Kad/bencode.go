@@ -51,12 +51,35 @@ func EncodeNum(x int) []byte {
 	return []byte(ret)
 }
 
-func EncodeList([]interface{}) []byte {
-	
+func EncodeList(list []interface{}) []byte {
+	ret := "l"
+	for i := range list {
+		ret += string(Encode(i))
+	}
+	ret += "e"
+	return []byte(ret)
+}
+
+func EncodeMap(m map[interface{}]interface{}) []byte {
+	ret := "d"
+	for k, v := range m {
+		ret += string(Encode(k)) + string(Encode(v))
+	}
+	ret += "e"
+	return []byte(ret)
 }
 
 func Encode(enc interface{}) []byte {
-
+	switch enc.(type) {
+	case int:
+		return EncodeNum(enc.(int))
+	case []interface{}:
+		return EncodeList(enc.([]interface{}))
+	case map[interface{}]interface{}:
+		return EncodeMap(enc.(map[interface{}]interface{}))
+	default:
+		return EncodeStr(enc.(string))
+	}
 }
 
 func EncodeFolder(folderName string) []byte {

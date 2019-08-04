@@ -19,7 +19,7 @@ func (this *KBucket) size() int {
 func (this *KBucket) insert(node *Node, contact Contact) {
 	this.mux.Lock()
 	for i := 0; i < len(this.contacts); i++ {
-		if contact.IPAddr == this.contacts[i].IPAddr {
+		if contact.Ip == this.contacts[i].Ip {
 			t := this.contacts[i]
 			this.contacts = append(this.contacts[0:i], this.contacts[i+1:]...)
 			this.contacts = append(this.contacts, t)

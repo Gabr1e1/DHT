@@ -8,66 +8,66 @@ import (
 )
 
 func (this *Node) update(contact Contact) {
-	if contact.IPAddr == this.Self.IPAddr {
+	if contact.Ip == this.Self.Ip {
 		return
 	}
-	belong := this.CalcPrefix(contact.NodeNum)
+	belong := this.CalcPrefix(contact.Id)
 	this.bucket[belong].insert(this, contact)
 }
 
 type PingReturn struct {
+	Header  Contact
 	Success bool
-	Self    Contact
 }
 
 func (this *Node) RPCPing(sender *Contact, reply *PingReturn) error {
 	go this.update(*sender)
 
-	*reply = PingReturn{true, this.Self}
+	*reply = PingReturn{this.Self, true}
 	return nil
 }
 
 type StoreRequest struct {
-	Sender Contact
+	Header Contact
 	Data   KVPair
 	Expire time.Time
 }
 
 type StoreReturn struct {
+	Header  Contact
 	Success bool
-	Self    Contact
 }
 
 func (this *Node) RPCStore(request *StoreRequest, reply *StoreReturn) error {
-	go this.update(request.Sender)
+	go this.update(request.Header)
 
-	this.data[request.Data.Key] = request.Data.Value
+	this.data[request.Data.Key] = request.Data.Val
 	this.expireTime[request.Data.Key] = request.Expire
 	this.republish[request.Data.Key] = false
 
-	*reply = StoreReturn{true, this.Self}
+	*reply = StoreReturn{this.Self, true}
 	return nil
 }
 
 type FindNodeRequest struct {
-	Sender Contact
+	Header Contact
 	Id     *big.Int
 }
 
 type FindNodeReturn struct {
-	Self    Contact
+	Header  Contact
 	Closest []Contact
 }
 
 func (this *Node) RPCFindNode(request *FindNodeRequest, reply *FindNodeReturn) error {
-	go this.update(request.Sender)
+	go this.update(request.Header)
 	cur := this.GetClosest(request.Id, K)
 	*reply = FindNodeReturn{this.Self, cur}
 	return nil
 }
 
 type FindValueRequest struct {
-	Sender Contact
+	Header Contact
 	Id     *big.Int
 	Key    string
 }
@@ -79,7 +79,7 @@ type FindValueReturn struct {
 }
 
 func (this *Node) RPCFindValue(request *FindValueRequest, reply *FindValueReturn) error {
-	go this.update(request.Sender)
+	go this.update(request.Header)
 
 	if _, ok := this.data[request.Key]; ok {
 		*reply = FindValueReturn{nil, this.Self, this.data[request.Key]}

@@ -349,7 +349,7 @@ func (n *Node) GetNodeInfo(_ *int, reply *InfoType) error {
 }
 
 func (n *Node) TransferData(replace *InfoType, reply *int) error {
-	//fmt.Println("Transfer Data", n.Info.IPAddr)
+	//fmt.Println("Transfer Data", n.Info.Ip)
 	if replace.IPAddr == "" {
 		return nil
 	}
@@ -429,7 +429,7 @@ func (n *Node) stabilize() {
 		n.mux.Lock()
 		if x.NodeNum.Cmp(big.NewInt(0)) != 0 && checkBetween(big.NewInt(1).Add(n.Info.NodeNum, big.NewInt(1)), n.Successors[0].NodeNum, x.NodeNum) {
 			n.Successors[0], n.Finger[0] = copyInfo(x), copyInfo(x)
-			//fmt.Printf("STABILIZE: %s's successor is %s\n", n.Info.IPAddr, x.IPAddr)
+			//fmt.Printf("STABILIZE: %s's successor is %s\n", n.Info.Ip, x.Ip)
 		}
 		n.mux.Unlock()
 		_ = client.Close()
@@ -459,7 +459,7 @@ func (n *Node) Notify(other *InfoType, reply *int) error {
 	if n.Predecessor.IPAddr == "" || checkBetween(big.NewInt(1).Add(n.Predecessor.NodeNum, big.NewInt(1)), n.Info.NodeNum, other.NodeNum) {
 		n.Predecessor = copyInfo(*other)
 		n.mux.Unlock()
-		//fmt.Printf("NOTIFY: %s's predecessor is %s\n", n.Info.IPAddr, other.IPAddr)
+		//fmt.Printf("NOTIFY: %s's predecessor is %s\n", n.Info.Ip, other.Ip)
 		if n.Predecessor.IPAddr != n.Info.IPAddr {
 			client, err := n.Connect(n.Predecessor)
 			if err != nil {

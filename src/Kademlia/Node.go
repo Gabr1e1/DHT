@@ -18,13 +18,13 @@ const checkInterval = time.Hour
 const republishInterval = time.Hour
 
 type Contact struct {
-	NodeNum *big.Int
-	IPAddr  string
+	Id *big.Int
+	Ip string
 }
 
 type KVPair struct {
-	Key   string
-	Value string
+	Key string
+	Val string
 }
 
 type Node struct {
@@ -62,7 +62,7 @@ func (this *Node) Run() {
 	_ = this.server.Register(this)
 
 	var err error = nil
-	this.listener, err = net.Listen("tcp", this.Self.IPAddr)
+	this.listener, err = net.Listen("tcp", this.Self.Ip)
 	if err != nil {
 		log.Fatal("listen error: ", err)
 	}
@@ -86,25 +86,27 @@ func (this *Node) Join(addr string) {
 	}
 
 	//insert node into the appropriate bucket list
-	l := this.CalcPrefix(other.NodeNum)
+	l := this.CalcPrefix(other.Id)
 	this.bucket[l].insert(this, other)
 
 	//Call FindNode on itself
-	this.FindNode(this.Self.NodeNum)
+	this.FindNode(this.Self.Id)
 }
 
 func (this *Node) Ping(contact Contact) bool {
 	client, err := this.Connect(contact)
 	if err != nil {
+		fmt.Println("Connection failed", err)
 		return false
 	}
-	var success bool
-	err = client.Call("Node.RPCPing", &this.Self, &success)
+	var ret PingReturn
+	err = client.Call("Node.RPCPing", &this.Self, &ret)
 	_ = client.Close()
 	if err != nil {
+		fmt.Println("Ping failed", err)
 		return false
 	}
-	return success
+	return ret.Success
 }
 
 func (this *Node) GetClosest(key *big.Int, num int) []Contact {
@@ -146,11 +148,11 @@ func (this *Node) FindNode(hashId *big.Int) []Contact {
 		}
 		t := reply.Closest
 		for _, i := range t {
-			_, ok := ans[i.IPAddr]
+			_, ok := ans[i.Ip]
 			if ok {
 				continue
 			}
-			ans[i.IPAddr] = i
+			ans[i.Ip] = i
 			cur = append(cur, i)
 		}
 	}
@@ -194,11 +196,11 @@ func (this *Node) FindValue(hashId *big.Int, key string) string {
 
 		t := reply.Closest
 		for _, i := range t {
-			_, ok := ans[i.IPAddr]
+			_, ok := ans[i.Ip]
 			if ok {
 				continue
 			}
-			ans[i.IPAddr] = i
+			ans[i.Ip] = i
 			cur = append(cur, i)
 		}
 	}
@@ -217,7 +219,7 @@ func (this *Node) Put(key string, value string) bool {
 		var reply StoreReturn
 		err = client.Call("Node.RPCStore", &StoreRequest{this.Self, KVPair{key, value}, expireTime}, &reply)
 		_ = client.Close()
-		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Self) {
+		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Header) {
 			return false
 		}
 	}
@@ -237,7 +239,7 @@ func (this *Node) Republish(key string, value string) bool {
 		var reply StoreReturn
 		err = client.Call("Node.RPCStore", &StoreRequest{this.Self, KVPair{key, value}, expireTime}, &reply)
 		_ = client.Close()
-		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Self) {
+		if err != nil || !reply.Success || !verifyIdentity(kClosest[i], reply.Header) {
 			return false
 		}
 	}

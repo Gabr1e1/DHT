@@ -29,6 +29,9 @@ func main() {
 		case "get":
 			ok, val := cur.Get(words[1])
 			fmt.Println(ok, val)
+		case "ping":
+			ok := cur.Ping(Kademlia.Contact{Ip: words[1]})
+			fmt.Println(ok)
 		default:
 			fmt.Println("FUCKING WRONG COMMAND")
 		}

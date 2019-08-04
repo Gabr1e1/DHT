@@ -40,7 +40,7 @@ func main() {
 	}
 
 	for i := 1; i < SIZE; i++ {
-		node[i].Join(node[0].Self.IPAddr)
+		node[i].Join(node[0].Self.Ip)
 	}
 	for i := 0; i < SIZE; i++ {
 		node[i].Dump()

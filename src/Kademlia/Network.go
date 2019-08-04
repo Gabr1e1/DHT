@@ -12,7 +12,7 @@ const maxTry = 3
 
 func (this *Node) Connect(otherNode Contact) (*rpc.Client, error) {
 	//fmt.Println("Calling: ", otherNode)
-	if otherNode.IPAddr == "" {
+	if otherNode.Ip == "" {
 		return nil, errors.New("invalid address")
 	}
 
@@ -22,7 +22,7 @@ func (this *Node) Connect(otherNode Contact) (*rpc.Client, error) {
 
 	go func() {
 		for i := 0; i < maxTry; i++ {
-			client, err = rpc.Dial("tcp", otherNode.IPAddr)
+			client, err = rpc.Dial("tcp", otherNode.Ip)
 			if err == nil {
 				c <- client
 				return
