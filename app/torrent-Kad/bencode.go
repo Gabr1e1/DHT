@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
 
-var pieceSize = 256 * 1024
+const pieceSize = 256 * 1024
 
 type BEncoding struct {
 	data   map[interface{}]interface{}
@@ -31,10 +32,11 @@ func addHash(str *string, data *[]byte, path string) {
 	//fmt.Println(size)
 
 	for size+int64(len(*data)) >= int64(pieceSize) {
-		*data = append(*data, readFile(file, int64(pieceSize-len(*data)))...)
-		size -= int64(pieceSize - len(*data))
+		t := int64(pieceSize - len(*data))
+		*data = append(*data, readFile(file, t)...)
+		size -= t
 		*str += DHT.GetByteHash(string(*data))
-		*data = (*data)[:0] //empty data but keep allocated memory
+		*data = make([]byte, 0)
 	}
 	if size != 0 && size+int64(len(*data)) < int64(pieceSize) {
 		*data = append(*data, readFile(file, size)...)
@@ -42,7 +44,7 @@ func addHash(str *string, data *[]byte, path string) {
 }
 
 func EncodeStr(x string) []byte {
-	ret := fmt.Sprintf("%d", len(x)) + x
+	ret := fmt.Sprintf("%d", len(x)) + ":" + x
 	return []byte(ret)
 }
 
@@ -53,7 +55,7 @@ func EncodeNum(x int) []byte {
 
 func EncodeList(list []interface{}) []byte {
 	ret := "l"
-	for i := range list {
+	for _, i := range list {
 		ret += string(Encode(i))
 	}
 	ret += "e"
@@ -70,19 +72,26 @@ func EncodeMap(m map[interface{}]interface{}) []byte {
 }
 
 func Encode(enc interface{}) []byte {
-	switch enc.(type) {
-	case int:
+	switch reflect.TypeOf(enc).Kind() {
+	case reflect.Int:
 		return EncodeNum(enc.(int))
-	case []interface{}:
-		return EncodeList(enc.([]interface{}))
-	case map[interface{}]interface{}:
+	case reflect.Int64:
+		return EncodeNum(int(enc.(int64)))
+	case reflect.Slice:
+		list := make([]interface{}, 0)
+		t := reflect.ValueOf(enc)
+		for i := 0; i < t.Len(); i++ {
+			list = append(list, t.Index(i).Interface())
+		}
+		return EncodeList(list)
+	case reflect.Map:
 		return EncodeMap(enc.(map[interface{}]interface{}))
 	default:
 		return EncodeStr(enc.(string))
 	}
 }
 
-func EncodeFolder(folderName string) []byte {
+func EncodeFolder(folderName string) ([]byte, string) {
 	enc := make(map[interface{}]interface{})
 	enc["name"] = folderName
 
@@ -99,8 +108,8 @@ func EncodeFolder(folderName string) []byte {
 			if info.Size() == 0 || len(path) < len(folderName)+1 {
 				return nil
 			}
-			cur["length"] = info.Size()
-			cur["path"] = strings.ReplaceAll(path[len(folderName)+1:], "\\", " ")
+			cur["Length"] = info.Size()
+			cur["path"] = strings.Fields(strings.ReplaceAll(path[len(folderName)+1:], "\\", " "))
 			files = append(files, cur)
 			addHash(&pieces, &data, path)
 
@@ -108,14 +117,37 @@ func EncodeFolder(folderName string) []byte {
 		})
 	if err != nil {
 		fmt.Println(err)
-		return nil
+		return nil, ""
 	}
 	enc["files"] = files
-	enc["piece length"] = 262144
+	enc["piece Length"] = 262144
 
 	if len(data) != 0 {
 		pieces += DHT.GetByteHash(string(data))
 	}
+	enc["Pieces"] = pieces
+	return Encode(enc), pieces
+}
+
+func EncodeSingleFile(fileName string) ([]byte, string) {
+	enc := make(map[interface{}]interface{})
+	enc["name"] = fileName
+
+	file, err := os.Open(fileName)
+	if err != nil {
+		fmt.Println("Can't open File")
+		return nil, ""
+	}
+	info, _ := file.Stat()
+	enc["length"] = info.Size()
+	enc["piece Length"] = 262144
+	pieces := ""
+	data := make([]byte, 0)
+
+	addHash(&pieces, &data, fileName)
+	if len(data) != 0 {
+		pieces += DHT.GetByteHash(string(data))
+	}
 	enc["pieces"] = pieces
-	return Encode(enc)
+	return Encode(enc), pieces
 }

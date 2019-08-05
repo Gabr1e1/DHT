@@ -1,7 +1,7 @@
 package main
 
 import (
-	"../app"
+	"../app/app-Chord"
 	"fmt"
 	"strconv"
 	"sync"

@@ -17,6 +17,6 @@ func main() {
 	l, _ := file.Read(str)
 	str = str[0:l]
 
-	t := torrent_Kad.Parse(string(str))
+	t := torrent_Kad.Decode(string(str))
 	fmt.Println(t)
 }

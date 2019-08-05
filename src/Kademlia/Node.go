@@ -39,8 +39,8 @@ type Node struct {
 
 	dataMux sync.RWMutex
 
-	server   *rpc.Server
-	listener net.Listener
+	Server   *rpc.Server
+	Listener net.Listener
 }
 
 func (this *Node) GetContact(_ *int, reply *Contact) error {
@@ -61,16 +61,16 @@ func (this *Node) Create(addr string) {
 }
 
 func (this *Node) Run(port int) {
-	this.server = rpc.NewServer()
-	_ = this.server.Register(this)
+	this.Server = rpc.NewServer()
+	_ = this.Server.Register(this)
 
 	var err error = nil
 	fmt.Println("Listening on: ", GetLocalAddress()+":"+strconv.Itoa(port))
-	this.listener, err = net.Listen("tcp", GetLocalAddress()+":"+strconv.Itoa(port))
+	this.Listener, err = net.Listen("tcp", GetLocalAddress()+":"+strconv.Itoa(port))
 	if err != nil {
 		log.Fatal("listen error: ", err)
 	}
-	go this.server.Accept(this.listener)
+	//go this.Server.Accept(this.Listener) //do this manually !!!
 	go this.expireCheck()
 }
 
@@ -201,8 +201,14 @@ func (this *Node) FindValue(hashId *big.Int, key string) Set {
 
 func (this *Node) Put(key string, value string) bool {
 	kClosest := this.FindNode(DHT.GetHash(key))
-	//fmt.Println("PUT", key, kClosest)
 	expireTime := time.Now().Add(expireTime)
+
+	if kClosest == nil {
+		_ = this.RPCStore(&StoreRequest{this.Self, KVPair{key, value}, expireTime}, nil)
+		return true
+	}
+
+	//fmt.Println("PUT", key, kClosest)
 	for i := range kClosest {
 		client, err := this.Connect(kClosest[i])
 		if err != nil {

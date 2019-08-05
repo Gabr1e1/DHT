@@ -39,11 +39,12 @@ func (this *BEncoding) ReadString() string {
 		num = num*10 + int(cur) - int('0')
 	}
 	this.readNext()
-	ret := ""
+	ret := make([]byte, 0)
 	for i := 0; i < num; i++ {
-		ret += string(this.readNext())
+		char := this.readNext()
+		ret = append(ret, char)
 	}
-	return ret
+	return string(ret)
 }
 
 func (this *BEncoding) ReadInt() int {
@@ -87,7 +88,7 @@ func (this *BEncoding) ReadDict() map[interface{}]interface{} {
 	return ret
 }
 
-func Parse(str string) interface{} {
+func Decode(str string) interface{} {
 	e := BEncoding{}
 	e.reader = strings.NewReader(str)
 	return e.ReadAnything()

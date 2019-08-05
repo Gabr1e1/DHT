@@ -1,7 +1,7 @@
 package app
 
 import (
-	"../src"
+	"../../src/Chord"
 	"fmt"
 	"log"
 	"math"

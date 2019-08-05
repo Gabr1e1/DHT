@@ -48,6 +48,8 @@ func (this *Node) Connect(otherNode Contact) (*rpc.Client, error) {
 }
 
 func GetLocalAddress() string {
+	return "127.0.0.1"
+
 	var localaddress string
 
 	ifaces, err := net.Interfaces()

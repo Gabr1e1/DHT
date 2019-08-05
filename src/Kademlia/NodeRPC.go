@@ -49,7 +49,9 @@ func (this *Node) RPCStore(request *StoreRequest, reply *StoreReturn) error {
 	this.expireTime[KVPair{request.Pair.Key, request.Pair.Val}] = request.Expire
 	this.republish[KVPair{request.Pair.Key, request.Pair.Val}] = false
 
-	*reply = StoreReturn{this.Self, true}
+	if reply != nil {
+		*reply = StoreReturn{this.Self, true}
+	}
 	return nil
 }
 
