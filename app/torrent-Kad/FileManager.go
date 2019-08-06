@@ -19,6 +19,15 @@ type FileInfo struct {
 	PeerInfo []PeerInfo
 }
 
+func parseDir(path []interface{}) (string, string) {
+	dir, fileName := "", ""
+	for i := 0; i < len(path)-1; i++ {
+		dir += path[i].(string) + "/"
+	}
+	fileName = path[len(path)-1].(string)
+	return dir, fileName
+}
+
 func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 	this.FileLock.Lock()
 	defer this.FileLock.Unlock()

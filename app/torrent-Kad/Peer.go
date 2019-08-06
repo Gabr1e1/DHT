@@ -181,7 +181,7 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 	num := len(dec["pieces"].(string)) / 20
 	if _, ok := dec["length"]; ok {
 		/* allocate file */
-		file, _ := os.Create(dec["name"].(string) + ".download")
+		file, _ := os.Create(dec["name"].(string))
 		if file == nil {
 			log.Fatal("Can't create file")
 		}
@@ -192,11 +192,24 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 		t.File = file
 		this.FileStat[infoHash] = t
 	} else {
+		files := dec["files"].([]interface{})
+		for _, i := range files {
+			curFile := i.(map[interface{}]interface{})
+			dir, fileName := parseDir(curFile["path"].([]interface{}))
+			_ = os.MkdirAll(dir, os.ModePerm)
 
+			/* allocate file */
+			file, _ := os.Create(dir + fileName)
+			if file == nil {
+				log.Fatal("Can't create file")
+			}
+			_ = file.Truncate(int64(num * pieceSize))
+			_ = file.Sync()
+		}
 	}
 }
 
-func (this *Peer) Download(magnetLink string, fileName string) bool {
+func (this *Peer) Download(magnetLink string) bool {
 	infoHash, err := this.initDownload(magnetLink)
 	if err != nil {
 		fmt.Println("Download failed", err)

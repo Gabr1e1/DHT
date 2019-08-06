@@ -64,7 +64,7 @@ func (this *Peer) GetPieceStatus(hashId *string, stat *IntSet) error {
 }
 
 func (this *Peer) GetPiece(request *TorrentRequest, pieces *[]byte) error {
-	if info, ok := this.FileStat[request.Infohash]; ok {
+if info, ok := this.FileStat[request.Infohash]; ok {
 		fmt.Println("Transferring piece", request.Index)
 		*pieces = info.GetFileInfo(request.Index, request.Length)
 		return nil

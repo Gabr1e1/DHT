@@ -30,7 +30,7 @@ func main() {
 			link := peer.PublishFolder(words[1])
 			fmt.Println("Magnet link generated: ", link)
 		case "Download":
-			ok := peer.Download(words[1], words[2])
+			ok := peer.Download(words[1])
 			fmt.Println(ok)
 		default:
 			fmt.Println("WRONG COMMAND, GO EAT SHIT")
