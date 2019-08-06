@@ -94,6 +94,7 @@ func (this *Peer) initDownload(magnetLink string) (string, error) {
 		}
 		curSet := make(IntSet)
 		err = client.Call("Peer.GetPieceStatus", &infoHash, &curSet)
+		client.Close()
 		if err != nil {
 			fmt.Println(addr, err)
 			continue
@@ -112,6 +113,7 @@ func (this *Peer) initDownload(magnetLink string) (string, error) {
 		}
 		torrent := make([]byte, maxTorrentSize)[:0]
 		err = client.Call("Peer.GetTorrentFile", &infoHash, &torrent)
+		client.Close()
 		if err != nil {
 			fmt.Println(peer.Addr, err)
 			continue
@@ -157,6 +159,7 @@ func (this *Peer) download(infoHash string, pieceNum int, dec map[interface{}]in
 	}
 	curPiece := make([]byte, pieceSize)[:0]
 	err = client.Call("Peer.GetPiece", &TorrentRequest{infoHash, pieceNum, pieceSize}, &curPiece)
+	_ = client.Close()
 	if err != nil {
 		return err
 	}

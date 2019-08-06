@@ -52,8 +52,8 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
 					return nil
 				}
-				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur+int(info.Size()) <= (index+1)*pieceSize) {
-					file, err := os.OpenFile(path, os.O_RDONLY, 0777)
+				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
+					file, err := os.OpenFile(path, os.O_RDONLY, 0666)
 					defer file.Close()
 					if err != nil {
 						return err
@@ -76,7 +76,7 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 		if err != nil {
 			log.Fatal("Can't read file3: ", this.folderName, err)
 		}
-		return ret
+		return ret[0:Min(length, len(ret))]
 	}
 }
 
@@ -98,7 +98,7 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
 					return nil
 				}
-				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur+int(info.Size()) <= (index+1)*pieceSize) {
+				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
 					file, err := os.OpenFile(path, os.O_RDWR, 0666)
 					defer file.Close()
 					if err != nil {
@@ -107,7 +107,7 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 					}
 					start := Max(0, index*pieceSize-cur)
 					_, _ = file.Seek(int64(start), 0)
-					l, _ := file.Write(data[0 : info.Size()-int64(start)])
+					l, _ := file.Write(data[0:Min(len(data), int(info.Size()-int64(start)))])
 
 					fmt.Println("WRITE", file.Name(), l, len(data))
 					data = data[l:]
