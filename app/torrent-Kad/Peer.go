@@ -19,7 +19,6 @@ type PeerInfo struct {
 
 type Peer struct {
 	Node     *Kademlia.Node
-	joined   bool
 	FileStat map[string]FileInfo
 	server   *rpc.Server
 	addr     string
@@ -29,7 +28,6 @@ func (this *Peer) Run(addr string, port int) {
 	this.Node = new(Kademlia.Node)
 	this.Node.Create(addr)
 	this.Node.Run(port)
-	this.joined = false
 
 	_ = this.Node.Server.Register(this)
 	this.addr = Kademlia.GetLocalAddress() + ":" + strconv.Itoa(port)
@@ -39,7 +37,8 @@ func (this *Peer) Run(addr string, port int) {
 }
 
 func (this *Peer) PublishFile(fileName string) string {
-	file, err := os.Open(fileName)
+	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+	defer file.Close()
 	if err != nil {
 		fmt.Println("Can't open File")
 		return ""
@@ -79,11 +78,7 @@ func (this *Peer) PublishFolder(folderName string) string {
 
 func (this *Peer) initDownload(magnetLink string) (string, error) {
 	infoHash, _, tracker := parseMagnet(magnetLink)
-	if !this.joined {
-		this.Node.Join(tracker)
-		this.joined = true
-	}
-
+	this.Node.Join(tracker)
 	fmt.Println(infoHash)
 
 	ok, peerList := this.Node.Get(infoHash)
@@ -182,6 +177,7 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 	if _, ok := dec["length"]; ok {
 		/* allocate file */
 		file, _ := os.Create(dec["name"].(string))
+		defer file.Close()
 		if file == nil {
 			log.Fatal("Can't create file")
 		}
@@ -192,19 +188,48 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 		t.File = file
 		this.FileStat[infoHash] = t
 	} else {
+		t := this.FileStat[infoHash]
+		t.folderName = dec["name"].(string)
+		t.Pieces = make(IntSet)
+		this.FileStat[infoHash] = t
+
 		files := dec["files"].([]interface{})
 		for _, i := range files {
 			curFile := i.(map[interface{}]interface{})
 			dir, fileName := parseDir(curFile["path"].([]interface{}))
-			_ = os.MkdirAll(dir, os.ModePerm)
+			_ = os.MkdirAll(dec["name"].(string)+"/"+dir, os.ModePerm)
 
 			/* allocate file */
-			file, _ := os.Create(dir + fileName)
+			file, _ := os.Create(dec["name"].(string) + "/" + dir + fileName)
+			defer file.Close()
 			if file == nil {
 				log.Fatal("Can't create file")
 			}
+			num := curFile["length"].(int) / pieceSize
+			if curFile["length"].(int)%pieceSize != 0 {
+				num++
+			}
 			_ = file.Truncate(int64(num * pieceSize))
 			_ = file.Sync()
+		}
+	}
+}
+
+func (this *Peer) truncate(infoHash string, dec map[interface{}]interface{}) {
+	if _, ok := dec["length"]; ok {
+		_ = this.FileStat[infoHash].File.Truncate(int64(dec["length"].(int)))
+		_ = this.FileStat[infoHash].File.Close()
+	} else {
+		files := dec["files"].([]interface{})
+		for _, i := range files {
+			curFile := i.(map[interface{}]interface{})
+			dir, fileName := parseDir(curFile["path"].([]interface{}))
+			file, _ := os.OpenFile(dec["name"].(string)+"/"+dir+fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+			err := file.Truncate(int64(curFile["length"].(int)))
+			if err != nil {
+				log.Fatal("Can't truncate: ", err)
+			}
+			_ = file.Close()
 		}
 	}
 }
@@ -228,9 +253,6 @@ func (this *Peer) Download(magnetLink string) bool {
 			return false
 		}
 	}
-
-	_ = this.FileStat[infoHash].File.Truncate(int64(dec["length"].(int)))
-	_ = this.FileStat[infoHash].File.Close()
-
+	this.truncate(infoHash, dec)
 	return true
 }

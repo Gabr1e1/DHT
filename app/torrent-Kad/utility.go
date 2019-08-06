@@ -4,6 +4,14 @@ import "strings"
 
 const maxTorrentSize = pieceSize * 80
 
+func Min(x, y int) int {
+	if x < y {
+		return x
+	} else {
+		return y
+	}
+}
+
 func parseMagnet(link string) (string, string, string) {
 	l1 := strings.Index(link, "magnet:?xt=urn:btih:") + len("magnet:?xt=urn:btih:")
 	l2 := strings.Index(link, "&dn=") + len("&dn=")

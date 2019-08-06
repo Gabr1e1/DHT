@@ -1,6 +1,7 @@
 package torrent_Kad
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -44,12 +45,32 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 		}
 		return ret
 	} else { //case 2: folder
+		ret = make([]byte, 0)
 		cur := 0
 		err := filepath.Walk(this.folderName,
 			func(path string, info os.FileInfo, err error) error {
-				if cur >= index*pieceSize && cur < index*pieceSize+length {
-
+				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
+					return nil
 				}
+				if cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize {
+					file, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE|os.O_TRUNC, 0777)
+					defer file.Close()
+					if err != nil {
+						return err
+					}
+					start := index*pieceSize - cur
+					t := make([]byte, pieceSize)
+					_, _ = file.Seek(int64(start), 0)
+					l, err := file.Read(t)
+					if err != nil {
+						log.Fatal(file.Name()+" Can't read at ", err)
+					}
+					fmt.Println("Read: ", start, l, info.Size())
+
+					t = t[:Min(length, l)]
+					ret = append(ret, t...)
+				}
+				cur += int(info.Size())
 				return nil
 			})
 		if err != nil {
@@ -62,11 +83,40 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 func (this *FileInfo) writeToFile(index int, data []byte) error {
 	this.FileLock.Lock()
 	defer this.FileLock.Unlock()
-	_, err := this.File.Seek(int64(index*pieceSize), 0)
-	if err != nil {
+	if this.File != nil {
+		_, err := this.File.Seek(int64(index*pieceSize), 0)
+		if err != nil {
+			return err
+		}
+		_, err = this.File.Write(data)
+		_ = this.File.Sync()
 		return err
+	} else {
+		cur := 0
+		err := filepath.Walk(this.folderName,
+			func(path string, info os.FileInfo, err error) error {
+				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
+					return nil
+				}
+				if cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize {
+					file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+					defer file.Close()
+					if err != nil {
+						return err
+					}
+					start := index*pieceSize - cur
+					l, err := file.WriteAt(data, int64(start))
+					if err != nil {
+						return err
+					}
+					data = data[l:]
+				}
+				cur += int(info.Size())
+				return nil
+			})
+		if err != nil {
+			log.Fatal("Can't read file3: ", this.folderName, err)
+		}
+		return nil
 	}
-	_, err = this.File.Write(data)
-	_ = this.File.Sync()
-	return err
 }
