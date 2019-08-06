@@ -55,6 +55,11 @@ func (this *Peer) PublishFile(fileName string) string {
 
 	this.Node.Put(infoHash, this.addr)
 
+	dec := Decode(string(this.FileStat[infoHash].Torrent)).(map[interface{}]interface{})
+	t := this.FileStat[infoHash]
+	t.dec = dec
+	this.FileStat[infoHash] = t
+
 	link := "magnet:?xt=urn:btih:" + infoHash + "&dn=" + fileName + "&tr=" + this.addr
 	return link
 }
@@ -71,6 +76,11 @@ func (this *Peer) PublishFolder(folderName string) string {
 	this.FileStat[infoHash] = cur
 
 	this.Node.Put(infoHash, this.addr)
+
+	dec := Decode(string(this.FileStat[infoHash].Torrent)).(map[interface{}]interface{})
+	t := this.FileStat[infoHash]
+	t.dec = dec
+	this.FileStat[infoHash] = t
 
 	link := "magnet:?xt=urn:btih:" + infoHash + "&dn=" + folderName + "&tr=" + this.addr
 	return link
@@ -143,8 +153,8 @@ func (this *Peer) choosePeer(infoHash string, pieceNum int) (PeerInfo, error) {
 
 func (this *Peer) verify(infoHash string, pieceNum int, curPiece []byte, dec map[interface{}]interface{}) bool {
 	fmt.Println("Downloaded len: ", len(curPiece))
-	fmt.Println("Hash of downloaded file: ", DHT.GetByteHash(string(curPiece)))
-	fmt.Println("Expected hash: ", dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20])
+	fmt.Println("Hash of downloaded file: ", []byte(DHT.GetByteHash(string(curPiece))))
+	fmt.Println("Expected hash: ", []byte(dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20]))
 	return DHT.GetByteHash(string(curPiece)) == dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20]
 }
 

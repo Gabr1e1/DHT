@@ -33,6 +33,7 @@ func addHash(str *string, data *[]byte, path string) {
 
 	for size+int64(len(*data)) >= int64(pieceSize) {
 		t := int64(pieceSize - len(*data))
+		fmt.Println("HASH", file.Name(), t)
 		*data = append(*data, readFile(file, t)...)
 		size -= t
 		*str += DHT.GetByteHash(string(*data))
@@ -111,7 +112,9 @@ func EncodeFolder(folderName string) ([]byte, string) {
 			fmt.Println(path, info.Size())
 
 			cur["length"] = info.Size()
-			cur["path"] = strings.Fields(strings.ReplaceAll(path[len(folderName)+1:], "\\", " "))
+			//fmt.Println("File: ", path[len(folderName)+1:])
+			cur["path"] = strings.Split(path[len(folderName)+1:], "\\")
+
 			files = append(files, cur)
 			addHash(&pieces, &data, path)
 

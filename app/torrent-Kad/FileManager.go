@@ -29,10 +29,11 @@ func parseDir(path []interface{}) (string, string) {
 }
 
 func (this *FileInfo) Walk(deal func(path string, size int) error) error {
+	//fmt.Println(this.dec["files"])
 	for _, i := range this.dec["files"].([]interface{}) {
-
-		dir, fileName := parseDir(i.(map[interface{}]interface{})["list"].([]interface{}))
-		err := deal(this.folderName+"/"+dir+"/"+fileName, i.(map[interface{}]interface{})["list"].(int))
+		dir, fileName := parseDir(i.(map[interface{}]interface{})["path"].([]interface{}))
+		//fmt.Println(this.folderName+"/"+dir+fileName, i.(map[interface{}]interface{})["length"].(int))
+		err := deal(this.folderName+"/"+dir+fileName, i.(map[interface{}]interface{})["length"].(int))
 		if err != nil {
 			return err
 		}
@@ -63,7 +64,7 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 				if len(ret) > length {
 					return nil
 				}
-				if (cur <= index*pieceSize && cur+int(size) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
+				if (cur <= index*pieceSize && cur+size > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
 					file, err := os.OpenFile(path, os.O_RDONLY, 0666)
 					defer file.Close()
 					if err != nil {
@@ -81,7 +82,7 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 					t = t[:Min(length, l)]
 					ret = append(ret, t...)
 				}
-				cur += int(size)
+				cur += size
 				return nil
 			})
 		if err != nil {
@@ -110,7 +111,7 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 					return nil
 				}
 
-				if (cur <= index*pieceSize && cur+int(size) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
+				if (cur <= index*pieceSize && cur+size > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
 					file, err := os.OpenFile(path, os.O_RDWR, 0666)
 					defer file.Close()
 					if err != nil {
@@ -119,12 +120,12 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 					}
 					start := Max(0, index*pieceSize-cur)
 					_, _ = file.Seek(int64(start), 0)
-					l, _ := file.Write(data[0:Min(len(data), int(int64(size-start)))])
+					l, _ := file.Write(data[0:Min(len(data), size-start)])
 
-					fmt.Println("WRITE", file.Name(), l, len(data))
+					fmt.Println("WRITE", file.Name(), start, l, len(data))
 					data = data[l:]
 				}
-				cur += int(size)
+				cur += size
 				return nil
 			})
 		if err != nil {
