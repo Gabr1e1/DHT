@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/rpc"
+	"strconv"
 	"time"
 )
 
@@ -51,7 +52,7 @@ func (this *Peer) GetTorrentFile(hashId *string, file *[]byte) error {
 		*file = info.Torrent
 		return nil
 	}
-	return errors.New("Can't find File corresponding to " + *hashId)
+	return errors.New("Can't find torrent corresponding to " + *hashId)
 }
 
 func (this *Peer) GetPieceStatus(hashId *string, stat *IntSet) error {
@@ -59,7 +60,7 @@ func (this *Peer) GetPieceStatus(hashId *string, stat *IntSet) error {
 		*stat = info.Pieces
 		return nil
 	}
-	return errors.New("Can't find File corresponding to " + *hashId)
+	return errors.New("Can't find piece corresponding to " + *hashId)
 }
 
 func (this *Peer) GetPiece(request *TorrentRequest, pieces *[]byte) error {
@@ -68,5 +69,5 @@ func (this *Peer) GetPiece(request *TorrentRequest, pieces *[]byte) error {
 		*pieces = info.GetFileInfo(request.Index, request.Length)
 		return nil
 	}
-	return errors.New("Can't find File corresponding to " + request.Infohash)
+	return errors.New("Can't get piece" + strconv.Itoa(request.Index))
 }

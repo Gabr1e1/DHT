@@ -110,7 +110,7 @@ func EncodeFolder(folderName string) ([]byte, string) {
 			}
 			fmt.Println(path, info.Size())
 
-			cur["Length"] = info.Size()
+			cur["length"] = info.Size()
 			cur["path"] = strings.Fields(strings.ReplaceAll(path[len(folderName)+1:], "\\", " "))
 			files = append(files, cur)
 			addHash(&pieces, &data, path)
@@ -127,7 +127,7 @@ func EncodeFolder(folderName string) ([]byte, string) {
 	if len(data) != 0 {
 		pieces += DHT.GetByteHash(string(data))
 	}
-	enc["Pieces"] = pieces
+	enc["pieces"] = pieces
 	return Encode(enc), pieces
 }
 

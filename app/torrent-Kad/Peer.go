@@ -1,6 +1,7 @@
 package torrent_Kad
 
 import (
+	"../../src/Chord"
 	"../../src/Kademlia"
 	"errors"
 	"fmt"
@@ -50,7 +51,7 @@ func (this *Peer) PublishFile(fileName string) string {
 	}
 
 	cur := FileInfo{Torrent: torrent, File: file, Pieces: pieces}
-	infoHash := fmt.Sprintf("%x", cur.GetFileHash())
+	infoHash := fmt.Sprintf("%x", DHT.GetHash(string(torrent)))
 	this.FileStat[infoHash] = cur
 
 	this.Node.Put(infoHash, this.addr)
@@ -66,10 +67,8 @@ func (this *Peer) PublishFolder(folderName string) string {
 		pieces[i] = struct{}{}
 	}
 
-	fmt.Println(string(torrent))
-
 	cur := FileInfo{Torrent: torrent, folderName: folderName, Pieces: pieces}
-	infoHash := fmt.Sprintf("%x", cur.GetFolderHash())
+	infoHash := fmt.Sprintf("%x", DHT.GetHash(string(torrent)))
 	this.FileStat[infoHash] = cur
 
 	this.Node.Put(infoHash, this.addr)
@@ -95,13 +94,13 @@ func (this *Peer) initDownload(magnetLink string) (string, error) {
 	peerInfo := make([]PeerInfo, 0)
 	for _, addr := range peerList {
 		client, err := this.Connect(addr)
-		if err != nil {
+		if err != nil || addr == this.addr {
 			continue
 		}
 		curSet := make(IntSet)
 		err = client.Call("Peer.GetPieceStatus", &infoHash, &curSet)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(addr, err)
 			continue
 		}
 		curInfo := PeerInfo{Addr: addr, pieces: curSet}
@@ -119,7 +118,7 @@ func (this *Peer) initDownload(magnetLink string) (string, error) {
 		torrent := make([]byte, maxTorrentSize)[:0]
 		err = client.Call("Peer.GetTorrentFile", &infoHash, &torrent)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(peer.Addr, err)
 			continue
 		}
 		if len(torrent) > 0 {
@@ -178,6 +177,25 @@ func (this *Peer) download(infoHash string, pieceNum int) error {
 	}
 }
 
+func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
+	num := len(dec["pieces"].(string)) / 20
+	if _, ok := dec["length"]; ok {
+		/* allocate file */
+		file, _ := os.Create(dec["name"].(string) + ".download")
+		if file == nil {
+			log.Fatal("Can't create file")
+		}
+		_ = file.Truncate(int64(num * pieceSize))
+		_ = file.Sync()
+		t := this.FileStat[infoHash]
+		t.Pieces = make(IntSet)
+		t.File = file
+		this.FileStat[infoHash] = t
+	} else {
+
+	}
+}
+
 func (this *Peer) Download(magnetLink string, fileName string) bool {
 	infoHash, err := this.initDownload(magnetLink)
 	if err != nil {
@@ -187,20 +205,9 @@ func (this *Peer) Download(magnetLink string, fileName string) bool {
 
 	dec := Decode(string(this.FileStat[infoHash].Torrent)).(map[interface{}]interface{})
 	num := len(dec["pieces"].(string)) / 20
-
-	/* allocate file */
-	file, _ := os.Create(fileName) //(dec["name"].(string) + ".download")
-	if file == nil {
-		log.Fatal("Can't create file")
-	}
-	_ = file.Truncate(int64(num * pieceSize))
-	_ = file.Sync()
-	t := this.FileStat[infoHash]
-	t.Pieces = make(IntSet)
-	t.File = file
-	this.FileStat[infoHash] = t
-
+	this.allocate(infoHash, dec)
 	this.Node.Put(infoHash, this.addr)
+
 	for i := 0; i < num; i++ {
 		err := this.download(infoHash, i)
 		if err != nil {
