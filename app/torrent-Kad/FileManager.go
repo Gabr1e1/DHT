@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 )
 
 type FileInfo struct {
 	Torrent []byte
+	dec     map[interface{}]interface{}
 
 	Pieces   IntSet
 	File     *os.File
 	FileLock sync.Mutex
 
 	folderName string
-
-	PeerInfo []PeerInfo
+	PeerInfo   []PeerInfo
 }
 
 func parseDir(path []interface{}) (string, string) {
@@ -27,6 +26,18 @@ func parseDir(path []interface{}) (string, string) {
 	}
 	fileName = path[len(path)-1].(string)
 	return dir, fileName
+}
+
+func (this *FileInfo) Walk(deal func(path string, size int) error) error {
+	for _, i := range this.dec["files"].([]interface{}) {
+
+		dir, fileName := parseDir(i.(map[interface{}]interface{})["list"].([]interface{}))
+		err := deal(this.folderName+"/"+dir+"/"+fileName, i.(map[interface{}]interface{})["list"].(int))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (this *FileInfo) GetFileInfo(index int, length int) []byte {
@@ -47,12 +58,12 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 	} else { //case 2: folder
 		ret = make([]byte, 0)
 		cur := 0
-		err := filepath.Walk(this.folderName,
-			func(path string, info os.FileInfo, err error) error {
-				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
+		err := this.Walk(
+			func(path string, size int) error {
+				if len(ret) > length {
 					return nil
 				}
-				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
+				if (cur <= index*pieceSize && cur+int(size) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
 					file, err := os.OpenFile(path, os.O_RDONLY, 0666)
 					defer file.Close()
 					if err != nil {
@@ -65,12 +76,12 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 					if err != nil {
 						log.Fatal(file.Name()+" Can't read at ", err)
 					}
-					fmt.Println("Read: ", start, l, info.Size(), length)
+					fmt.Println("Read: ", start, l, size, length)
 
 					t = t[:Min(length, l)]
 					ret = append(ret, t...)
 				}
-				cur += int(info.Size())
+				cur += int(size)
 				return nil
 			})
 		if err != nil {
@@ -93,12 +104,13 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 		return err
 	} else {
 		cur := 0
-		err := filepath.Walk(this.folderName,
-			func(path string, info os.FileInfo, err error) error {
-				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
+		err := this.Walk(
+			func(path string, size int) error {
+				if len(data) == 0 {
 					return nil
 				}
-				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
+
+				if (cur <= index*pieceSize && cur+int(size) > index*pieceSize) || (cur >= index*pieceSize && cur < (index+1)*pieceSize) {
 					file, err := os.OpenFile(path, os.O_RDWR, 0666)
 					defer file.Close()
 					if err != nil {
@@ -107,12 +119,12 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 					}
 					start := Max(0, index*pieceSize-cur)
 					_, _ = file.Seek(int64(start), 0)
-					l, _ := file.Write(data[0:Min(len(data), int(info.Size()-int64(start)))])
+					l, _ := file.Write(data[0:Min(len(data), int(int64(size-start)))])
 
 					fmt.Println("WRITE", file.Name(), l, len(data))
 					data = data[l:]
 				}
-				cur += int(info.Size())
+				cur += int(size)
 				return nil
 			})
 		if err != nil {

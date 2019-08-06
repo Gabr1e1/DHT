@@ -4,12 +4,19 @@ import (
 	"./torrent-Kad"
 	"bufio"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"strings"
 )
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	reader := bufio.NewReader(os.Stdin)
 	peer := new(torrent_Kad.Peer)
 

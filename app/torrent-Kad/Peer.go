@@ -248,6 +248,10 @@ func (this *Peer) Download(magnetLink string) bool {
 	}
 
 	dec := Decode(string(this.FileStat[infoHash].Torrent)).(map[interface{}]interface{})
+	t := this.FileStat[infoHash]
+	t.dec = dec
+	this.FileStat[infoHash] = t
+
 	num := len(dec["pieces"].(string)) / 20
 	this.allocate(infoHash, dec)
 	this.Node.Put(infoHash, this.addr)
