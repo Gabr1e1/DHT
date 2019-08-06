@@ -105,9 +105,11 @@ func EncodeFolder(folderName string) ([]byte, string) {
 				return err
 			}
 			cur := make(map[interface{}]interface{})
-			if info.Size() == 0 || len(path) < len(folderName)+1 {
+			if info.Size() == 0 || len(path) < len(folderName)+1 || info.IsDir() {
 				return nil
 			}
+			fmt.Println(path, info.Size())
+
 			cur["Length"] = info.Size()
 			cur["path"] = strings.Fields(strings.ReplaceAll(path[len(folderName)+1:], "\\", " "))
 			files = append(files, cur)

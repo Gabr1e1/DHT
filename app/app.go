@@ -16,12 +16,18 @@ func main() {
 	for {
 		cmd, _, _ := reader.ReadLine()
 		words := strings.Fields(string(cmd))
+		if len(words) == 0 {
+			continue
+		}
 		switch string(words[0]) {
 		case "run":
 			port, _ := strconv.Atoi(words[2])
 			peer.Run(words[1], port)
 		case "PublishFile":
 			link := peer.PublishFile(words[1])
+			fmt.Println("Magnet link generated: ", link)
+		case "PublishFolder":
+			link := peer.PublishFolder(words[1])
 			fmt.Println("Magnet link generated: ", link)
 		case "Download":
 			ok := peer.Download(words[1], words[2])

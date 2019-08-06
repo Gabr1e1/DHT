@@ -59,6 +59,25 @@ func (this *Peer) PublishFile(fileName string) string {
 	return link
 }
 
+func (this *Peer) PublishFolder(folderName string) string {
+	torrent, piece := EncodeFolder(folderName)
+	pieces := make(IntSet)
+	for i := 0; i < len(piece)/20; i++ {
+		pieces[i] = struct{}{}
+	}
+
+	fmt.Println(string(torrent))
+
+	cur := FileInfo{Torrent: torrent, folderName: folderName, Pieces: pieces}
+	infoHash := fmt.Sprintf("%x", cur.GetFolderHash())
+	this.FileStat[infoHash] = cur
+
+	this.Node.Put(infoHash, this.addr)
+
+	link := "magnet:?xt=urn:btih:" + infoHash + "&dn=" + folderName + "&tr=" + this.addr
+	return link
+}
+
 func (this *Peer) initDownload(magnetLink string) (string, error) {
 	infoHash, _, tracker := parseMagnet(magnetLink)
 	if !this.joined {
