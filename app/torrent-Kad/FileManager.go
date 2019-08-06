@@ -52,20 +52,20 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
 					return nil
 				}
-				if cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize {
-					file, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE|os.O_TRUNC, 0777)
+				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur+int(info.Size()) <= (index+1)*pieceSize) {
+					file, err := os.OpenFile(path, os.O_RDONLY, 0777)
 					defer file.Close()
 					if err != nil {
 						return err
 					}
-					start := index*pieceSize - cur
+					start := Max(0, index*pieceSize-cur)
 					t := make([]byte, pieceSize)
 					_, _ = file.Seek(int64(start), 0)
 					l, err := file.Read(t)
 					if err != nil {
 						log.Fatal(file.Name()+" Can't read at ", err)
 					}
-					fmt.Println("Read: ", start, l, info.Size())
+					fmt.Println("Read: ", start, l, info.Size(), length)
 
 					t = t[:Min(length, l)]
 					ret = append(ret, t...)
@@ -98,17 +98,18 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 				if info.Size() == 0 || len(path) < len(this.folderName)+1 || info.IsDir() {
 					return nil
 				}
-				if cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize {
-					file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+				if (cur <= index*pieceSize && cur+int(info.Size()) > index*pieceSize) || (cur >= index*pieceSize && cur+int(info.Size()) <= (index+1)*pieceSize) {
+					file, err := os.OpenFile(path, os.O_RDWR, 0666)
 					defer file.Close()
 					if err != nil {
+						fmt.Println(err)
 						return err
 					}
-					start := index*pieceSize - cur
-					l, err := file.WriteAt(data, int64(start))
-					if err != nil {
-						return err
-					}
+					start := Max(0, index*pieceSize-cur)
+					_, _ = file.Seek(int64(start), 0)
+					l, _ := file.Write(data[0 : info.Size()-int64(start)])
+
+					fmt.Println("WRITE", file.Name(), l, len(data))
 					data = data[l:]
 				}
 				cur += int(info.Size())

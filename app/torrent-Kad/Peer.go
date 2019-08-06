@@ -139,11 +139,14 @@ func (this *Peer) choosePeer(infoHash string, pieceNum int) (PeerInfo, error) {
 	return PeerInfo{}, errors.New(infoHash + "can't find" + strconv.Itoa(pieceNum))
 }
 
-func (this *Peer) verify(infoHash string, pieceNum int) bool {
-	return true
+func (this *Peer) verify(infoHash string, pieceNum int, curPiece []byte, dec map[interface{}]interface{}) bool {
+	fmt.Println("Downloaded len: ", len(curPiece))
+	fmt.Println("Hash of downloaded file: ", DHT.GetByteHash(string(curPiece)))
+	fmt.Println("Expected hash: ", dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20])
+	return DHT.GetByteHash(string(curPiece)) == dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20]
 }
 
-func (this *Peer) download(infoHash string, pieceNum int) error {
+func (this *Peer) download(infoHash string, pieceNum int, dec map[interface{}]interface{}) error {
 	peer, err := this.choosePeer(infoHash, pieceNum)
 	if err != nil {
 		return err
@@ -162,7 +165,7 @@ func (this *Peer) download(infoHash string, pieceNum int) error {
 	if err != nil {
 		return err
 	}
-	if this.verify(infoHash, pieceNum) {
+	if this.verify(infoHash, pieceNum, curPiece, dec) {
 		t := this.FileStat[infoHash]
 		t.Pieces[pieceNum] = struct{}{}
 		this.FileStat[infoHash] = t
@@ -173,7 +176,6 @@ func (this *Peer) download(infoHash string, pieceNum int) error {
 }
 
 func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
-	num := len(dec["pieces"].(string)) / 20
 	if _, ok := dec["length"]; ok {
 		/* allocate file */
 		file, _ := os.Create(dec["name"].(string))
@@ -181,12 +183,13 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 		if file == nil {
 			log.Fatal("Can't create file")
 		}
-		_ = file.Truncate(int64(num * pieceSize))
+		_ = file.Truncate(int64(dec["length"].(int)))
 		_ = file.Sync()
 		t := this.FileStat[infoHash]
 		t.Pieces = make(IntSet)
 		t.File = file
 		this.FileStat[infoHash] = t
+
 	} else {
 		t := this.FileStat[infoHash]
 		t.folderName = dec["name"].(string)
@@ -209,7 +212,7 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 			if curFile["length"].(int)%pieceSize != 0 {
 				num++
 			}
-			_ = file.Truncate(int64(num * pieceSize))
+			_ = file.Truncate(int64(curFile["length"].(int)))
 			_ = file.Sync()
 		}
 	}
@@ -224,7 +227,7 @@ func (this *Peer) truncate(infoHash string, dec map[interface{}]interface{}) {
 		for _, i := range files {
 			curFile := i.(map[interface{}]interface{})
 			dir, fileName := parseDir(curFile["path"].([]interface{}))
-			file, _ := os.OpenFile(dec["name"].(string)+"/"+dir+fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+			file, _ := os.OpenFile(dec["name"].(string)+"/"+dir+fileName, os.O_RDWR, 0777)
 			err := file.Truncate(int64(curFile["length"].(int)))
 			if err != nil {
 				log.Fatal("Can't truncate: ", err)
@@ -247,12 +250,12 @@ func (this *Peer) Download(magnetLink string) bool {
 	this.Node.Put(infoHash, this.addr)
 
 	for i := 0; i < num; i++ {
-		err := this.download(infoHash, i)
+		err := this.download(infoHash, i, dec)
 		if err != nil {
 			fmt.Println("Can't get piece", i, err)
 			return false
 		}
 	}
-	this.truncate(infoHash, dec)
+	//this.truncate(infoHash, dec)
 	return true
 }

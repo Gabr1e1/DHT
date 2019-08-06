@@ -31,7 +31,11 @@ func main() {
 			fmt.Println("Magnet link generated: ", link)
 		case "Download":
 			ok := peer.Download(words[1])
-			fmt.Println(ok)
+			if ok {
+				fmt.Println("Download success")
+			} else {
+				fmt.Println("Download failed")
+			}
 		default:
 			fmt.Println("WRONG COMMAND, GO EAT SHIT")
 		}
