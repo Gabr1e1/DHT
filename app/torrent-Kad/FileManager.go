@@ -18,6 +18,7 @@ type FileInfo struct {
 	folderName    string
 	PeerInfo      []PeerInfo
 	isDownloading map[int]bool
+	lock          sync.Mutex
 }
 
 func parseDir(path []interface{}) (string, string) {

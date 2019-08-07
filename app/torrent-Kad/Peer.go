@@ -25,6 +25,7 @@ type Peer struct {
 	FileStat map[string]FileInfo
 	server   *rpc.Server
 	addr     string
+	lock     sync.Mutex
 }
 
 func (this *Peer) Run(addr string, port int) {
@@ -212,22 +213,29 @@ func (this *Peer) download(infoHash string, pieceNum int, dec map[interface{}]in
 		return err
 	}
 	t := this.FileStat[infoHash]
-	err = t.writeToFile(pieceNum, curPiece)
-	if err != nil {
-		return err
-	}
-	if this.verify(infoHash, pieceNum, curPiece, dec) {
-		t := this.FileStat[infoHash]
-		t.isDownloading[pieceNum] = false
-		t.Pieces[pieceNum] = struct{}{}
-		this.FileStat[infoHash] = t
-		return nil
-	} else {
-		t := this.FileStat[infoHash]
-		t.isDownloading[pieceNum] = false
-		this.FileStat[infoHash] = t
-		return errors.New("wrong data")
-	}
+
+	ch := make(chan error)
+	go func() {
+		err = t.writeToFile(pieceNum, curPiece)
+		if err != nil {
+			ch <- err
+		}
+		if this.verify(infoHash, pieceNum, curPiece, dec) {
+			t := this.FileStat[infoHash]
+			t.isDownloading[pieceNum] = false
+			t.Pieces[pieceNum] = struct{}{}
+			this.FileStat[infoHash] = t
+			ch <- nil
+		} else {
+			t := this.FileStat[infoHash]
+			t.isDownloading[pieceNum] = false
+			this.FileStat[infoHash] = t
+			ch <- errors.New("wrong data")
+		}
+	}()
+
+	err = <-ch
+	return err
 }
 
 func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
@@ -255,20 +263,19 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 		for _, i := range files {
 			curFile := i.(map[interface{}]interface{})
 			dir, fileName := parseDir(curFile["path"].([]interface{}))
+			//fmt.Println(curFile["path"].([]interface{}))
 			_ = os.MkdirAll(dec["name"].(string)+"/"+dir, os.ModePerm)
-
 			/* allocate file */
 			file, _ := os.Create(dec["name"].(string) + "/" + dir + fileName)
-			defer file.Close()
 			if file == nil {
-				log.Fatal("Can't create file")
+				log.Fatal("Can't create file ", dec["name"].(string)+"/"+dir+fileName)
 			}
 			num := curFile["length"].(int) / pieceSize
 			if curFile["length"].(int)%pieceSize != 0 {
 				num++
 			}
 			_ = file.Truncate(int64(curFile["length"].(int)))
-			_ = file.Sync()
+			_ = file.Close()
 		}
 	}
 }
@@ -293,10 +300,14 @@ func (this *Peer) truncate(infoHash string, dec map[interface{}]interface{}) {
 }
 
 func (this *Peer) getNextPiece(infoHash string, total int) int {
+	this.lock.Lock()
+	t := this.FileStat[infoHash]
+	defer this.lock.Unlock()
+
 	for i := 0; i < total; i++ {
-		if _, ok := this.FileStat[infoHash].Pieces[i]; (!ok) && (!this.FileStat[infoHash].isDownloading[i]) {
-			t := this.FileStat[infoHash]
-			t.isDownloading[i] = true
+		if _, ok := t.Pieces[i]; (!ok) && (!t.isDownloading[i]) {
+			tmp := this.FileStat[infoHash]
+			tmp.isDownloading[i] = true
 			this.FileStat[infoHash] = t
 			return i
 		}
