@@ -15,8 +15,9 @@ type FileInfo struct {
 	File     *os.File
 	FileLock sync.Mutex
 
-	folderName string
-	PeerInfo   []PeerInfo
+	folderName    string
+	PeerInfo      []PeerInfo
+	isDownloading map[int]bool
 }
 
 func parseDir(path []interface{}) (string, string) {
@@ -95,6 +96,7 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 func (this *FileInfo) writeToFile(index int, data []byte) error {
 	this.FileLock.Lock()
 	defer this.FileLock.Unlock()
+
 	if this.File != nil {
 		_, err := this.File.Seek(int64(index*pieceSize), 0)
 		if err != nil {

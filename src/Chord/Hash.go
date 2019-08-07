@@ -2,7 +2,6 @@ package DHT
 
 import (
 	"crypto/sha1"
-	"fmt"
 	"math/big"
 )
 
@@ -23,10 +22,8 @@ func Hex2Num(b byte) byte {
 }
 
 func GetByteHash(k string) string {
-	t := fmt.Sprintf("%40x", GetHash(k))
-	var ret []byte
-	for i := 0; i < len(t)/2; i++ {
-		ret = append(ret, Hex2Num(t[i*2])*16+Hex2Num(t[i*2+1]))
-	}
-	return string(ret)
+	h := sha1.New()
+	h.Write([]byte(k))
+	hRes := h.Sum(nil)
+	return string(hRes)
 }

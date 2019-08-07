@@ -125,7 +125,7 @@ func EncodeFolder(folderName string) ([]byte, string) {
 		return nil, ""
 	}
 	enc["files"] = files
-	enc["piece Length"] = 262144
+	enc["piece length"] = 262144
 
 	if len(data) != 0 {
 		pieces += DHT.GetByteHash(string(data))
@@ -145,7 +145,7 @@ func EncodeSingleFile(fileName string) ([]byte, string) {
 	}
 	info, _ := file.Stat()
 	enc["length"] = info.Size()
-	enc["piece Length"] = 262144
+	enc["piece length"] = 262144
 	pieces := ""
 	data := make([]byte, 0)
 

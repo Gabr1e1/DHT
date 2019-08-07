@@ -10,7 +10,10 @@ import (
 	"net/rpc"
 	"os"
 	"strconv"
+	"sync"
 )
+
+const maxConcurrentThread = 3
 
 type PeerInfo struct {
 	Addr   string
@@ -30,7 +33,7 @@ func (this *Peer) Run(addr string, port int) {
 	this.Node.Run(port)
 
 	_ = this.Node.Server.Register(this)
-	this.addr = Kademlia.GetLocalAddress() + ":" + strconv.Itoa(port)
+	this.addr = addr
 	go this.Node.Server.Accept(this.Node.Listener)
 
 	this.FileStat = make(map[string]FileInfo)
@@ -89,22 +92,59 @@ func (this *Peer) PublishFolder(folderName string) string {
 func (this *Peer) initDownload(magnetLink string) (string, error) {
 	infoHash, _, tracker := parseMagnet(magnetLink)
 	this.Node.Join(tracker)
-	fmt.Println(infoHash)
+	//fmt.Println(infoHash)
 
 	ok, peerList := this.Node.Get(infoHash)
 	if !ok {
 		return "", errors.New("can't find corresponding Torrent File")
 	}
 
+	fmt.Println("PeerList: ", peerList)
+
+	var ret string
+	var err error
+	for _, peer := range peerList {
+		client, err := this.Connect(peer)
+		if err != nil {
+			continue
+		}
+		torrent := make([]byte, maxTorrentSize)[:0]
+		err = client.Call("Peer.GetTorrentFile", &infoHash, &torrent)
+		_ = client.Close()
+		if err != nil {
+			fmt.Println(peer, err)
+			continue
+		}
+		if len(torrent) > 0 {
+			t := this.FileStat[infoHash]
+			t.Torrent = torrent
+			this.FileStat[infoHash] = t
+			ret, err = infoHash, nil
+			break
+		}
+	}
+
 	peerInfo := make([]PeerInfo, 0)
 	for _, addr := range peerList {
 		client, err := this.Connect(addr)
-		if err != nil || addr == this.addr {
+		if err != nil {
 			continue
 		}
 		curSet := make(IntSet)
 		err = client.Call("Peer.GetPieceStatus", &infoHash, &curSet)
-		client.Close()
+		if _, ok := curSet[-1]; ok { //Have all pieces
+			dec := Decode(string(this.FileStat[infoHash].Torrent)).(map[interface{}]interface{})
+			num := len(dec["pieces"].(string)) / 20
+			for i := 0; i < num; i++ {
+				curSet[i] = struct{}{}
+			}
+			delete(curSet, -1)
+		}
+
+		//for k := range curSet {
+		//	fmt.Println("Cur Piece: ", k)
+		//}
+		_ = client.Close()
 		if err != nil {
 			fmt.Println(addr, err)
 			continue
@@ -116,24 +156,8 @@ func (this *Peer) initDownload(magnetLink string) (string, error) {
 	t.PeerInfo = peerInfo
 	this.FileStat[infoHash] = t
 
-	for _, peer := range this.FileStat[infoHash].PeerInfo {
-		client, err := this.Connect(peer.Addr)
-		if err != nil {
-			continue
-		}
-		torrent := make([]byte, maxTorrentSize)[:0]
-		err = client.Call("Peer.GetTorrentFile", &infoHash, &torrent)
-		client.Close()
-		if err != nil {
-			fmt.Println(peer.Addr, err)
-			continue
-		}
-		if len(torrent) > 0 {
-			t := this.FileStat[infoHash]
-			t.Torrent = torrent
-			this.FileStat[infoHash] = t
-			return infoHash, nil
-		}
+	if len(ret) > 0 {
+		return ret, err
 	}
 	return "", errors.New("can't find Torrent")
 }
@@ -152,13 +176,27 @@ func (this *Peer) choosePeer(infoHash string, pieceNum int) (PeerInfo, error) {
 }
 
 func (this *Peer) verify(infoHash string, pieceNum int, curPiece []byte, dec map[interface{}]interface{}) bool {
-	fmt.Println("Downloaded len: ", len(curPiece))
-	fmt.Println("Hash of downloaded file: ", []byte(DHT.GetByteHash(string(curPiece))))
-	fmt.Println("Expected hash: ", []byte(dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20]))
-	return DHT.GetByteHash(string(curPiece)) == dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20]
+	a := []byte(DHT.GetByteHash(string(curPiece)))
+	b := []byte(dec["pieces"].(string)[pieceNum*20 : (pieceNum+1)*20])
+	if len(a) != len(b) {
+		fmt.Println("Downloaded", pieceNum, "len: ", len(curPiece))
+		fmt.Println("Hash of downloaded file: \n", []byte(DHT.GetByteHash(string(curPiece))))
+		fmt.Println("Expected hash: \n", []byte(dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20]))
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			fmt.Println("Downloaded", pieceNum, "len: ", len(curPiece))
+			fmt.Println("Hash of downloaded file: \n", []byte(DHT.GetByteHash(string(curPiece))))
+			fmt.Println("Expected hash: \n", []byte(dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20]))
+			return false
+		}
+	}
+	return true
 }
 
 func (this *Peer) download(infoHash string, pieceNum int, dec map[interface{}]interface{}) error {
+	//fmt.Println("Downloading piece: ", pieceNum)
 	peer, err := this.choosePeer(infoHash, pieceNum)
 	if err != nil {
 		return err
@@ -180,10 +218,14 @@ func (this *Peer) download(infoHash string, pieceNum int, dec map[interface{}]in
 	}
 	if this.verify(infoHash, pieceNum, curPiece, dec) {
 		t := this.FileStat[infoHash]
+		t.isDownloading[pieceNum] = false
 		t.Pieces[pieceNum] = struct{}{}
 		this.FileStat[infoHash] = t
 		return nil
 	} else {
+		t := this.FileStat[infoHash]
+		t.isDownloading[pieceNum] = false
+		this.FileStat[infoHash] = t
 		return errors.New("wrong data")
 	}
 }
@@ -250,6 +292,18 @@ func (this *Peer) truncate(infoHash string, dec map[interface{}]interface{}) {
 	}
 }
 
+func (this *Peer) getNextPiece(infoHash string, total int) int {
+	for i := 0; i < total; i++ {
+		if _, ok := this.FileStat[infoHash].Pieces[i]; (!ok) && (!this.FileStat[infoHash].isDownloading[i]) {
+			t := this.FileStat[infoHash]
+			t.isDownloading[i] = true
+			this.FileStat[infoHash] = t
+			return i
+		}
+	}
+	return -1
+}
+
 func (this *Peer) Download(magnetLink string) bool {
 	infoHash, err := this.initDownload(magnetLink)
 	if err != nil {
@@ -260,19 +314,31 @@ func (this *Peer) Download(magnetLink string) bool {
 	dec := Decode(string(this.FileStat[infoHash].Torrent)).(map[interface{}]interface{})
 	t := this.FileStat[infoHash]
 	t.dec = dec
+	t.isDownloading = make(map[int]bool)
 	this.FileStat[infoHash] = t
 
-	num := len(dec["pieces"].(string)) / 20
 	this.allocate(infoHash, dec)
 	this.Node.Put(infoHash, this.addr)
 
-	for i := 0; i < num; i++ {
-		err := this.download(infoHash, i, dec)
-		if err != nil {
-			fmt.Println("Can't get piece", i, err)
-			return false
-		}
+	total := len(dec["pieces"].(string)) / 20
+
+	var wg sync.WaitGroup
+	wg.Add(maxConcurrentThread)
+	for i := 0; i < maxConcurrentThread; i++ {
+		go func() {
+			defer wg.Done()
+			for {
+				t := this.getNextPiece(infoHash, total)
+				if t == -1 {
+					break
+				}
+				err := this.download(infoHash, t, dec)
+				if err != nil {
+					fmt.Println("Piece", i, "download failed")
+				}
+			}
+		}()
 	}
-	//this.truncate(infoHash, dec)
+	wg.Wait()
 	return true
 }
