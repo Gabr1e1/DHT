@@ -36,10 +36,11 @@ func main() {
 	var node [SIZE]Kademlia.Node
 	for i := 0; i < SIZE; i++ {
 		node[i].Create(DHT.GetLocalAddress() + ":" + strconv.Itoa(i+2000))
-		node[i].Run()
+		node[i].Run(i + 2000)
 	}
 
 	for i := 1; i < SIZE; i++ {
+		fmt.Println("Joining", i)
 		node[i].Join(node[0].Self.Ip)
 	}
 	for i := 0; i < SIZE; i++ {

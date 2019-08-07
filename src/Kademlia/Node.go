@@ -16,7 +16,8 @@ const alpha = 3
 const M = 160
 const expireTime = time.Hour * 24
 const checkInterval = time.Hour
-const republishInterval = time.Hour
+const replicateInterval = time.Hour
+const republishInterval = time.Hour * 24
 
 type Contact struct {
 	Id *big.Int
@@ -31,11 +32,12 @@ type KVPair struct {
 type Set map[string]struct{} //F**k, don't want to use this, but somehow have to
 
 type Node struct {
-	bucket     []KBucket
-	Self       Contact
-	data       map[string]Set
-	expireTime map[KVPair]time.Time //Pair automatically expires after Expire time
-	republish  map[KVPair]bool      //whether it needs to be republished this hour
+	bucket      []KBucket
+	Self        Contact
+	data        map[string]Set
+	publishData map[string]Set
+	expireTime  map[KVPair]time.Time //Pair automatically expires after Expire time
+	republish   map[KVPair]bool      //whether it needs to be republished this hour
 
 	dataMux sync.RWMutex
 
@@ -54,6 +56,7 @@ func (this *Node) Create(addr string) {
 		this.bucket = append(this.bucket, KBucket{})
 	}
 	this.data = make(map[string]Set)
+	this.publishData = make(map[string]Set)
 	this.expireTime = make(map[KVPair]time.Time)
 	this.republish = make(map[KVPair]bool)
 
@@ -70,8 +73,10 @@ func (this *Node) Run(port int) {
 	if err != nil {
 		log.Fatal("listen error: ", err)
 	}
-	//go this.Server.Accept(this.Listener) //do this manually !!!
+	//go this.Server.Accept(this.Listener) //do this manually if used in a program!!!
 	go this.expireCheck()
+	go this.replicateKey()
+	go this.republishKey()
 }
 
 func (this *Node) Join(addr string) {
@@ -200,6 +205,11 @@ func (this *Node) FindValue(hashId *big.Int, key string) Set {
 }
 
 func (this *Node) Put(key string, value string) bool {
+	if _, ok := this.publishData[key]; !ok {
+		this.publishData[key] = make(Set)
+	}
+	this.publishData[key][value] = struct{}{}
+
 	kClosest := this.FindNode(DHT.GetHash(key))
 	expireTime := time.Now().Add(expireTime)
 
@@ -290,6 +300,17 @@ func (this *Node) replicateKey() {
 					continue
 				}
 				this.Replicate(key, value)
+			}
+		}
+		time.Sleep(replicateInterval)
+	}
+}
+
+func (this *Node) republishKey() {
+	for {
+		for key, set := range this.publishData {
+			for value := range set {
+				this.Put(key, value)
 			}
 		}
 		time.Sleep(republishInterval)

@@ -79,7 +79,7 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 					if err != nil {
 						log.Fatal(file.Name()+" Can't read at ", err)
 					}
-					fmt.Println("Read: ", start, l, size, length)
+					//fmt.Println("Read: ", start, l, size, length)
 
 					t = t[:Min(length, l)]
 					ret = append(ret, t...)
@@ -125,7 +125,7 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 					_, _ = file.Seek(int64(start), 0)
 					l, _ := file.Write(data[0:Min(len(data), size-start)])
 
-					fmt.Println("WRITE", file.Name(), start, l, len(data))
+					//fmt.Println("WRITE", file.Name(), start, l, len(data))
 					data = data[l:]
 				}
 				cur += size
