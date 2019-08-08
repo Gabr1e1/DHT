@@ -50,6 +50,7 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 
 	if this.File != nil { //case 1: single file
 		_, err := this.File.Seek(int64(index*pieceSize), 0)
+		f, _ := this.File.Stat()
 		if err != nil {
 			log.Fatal("Can't read file1: ", this.File.Name(), " ", index, " ", err)
 		}
@@ -57,7 +58,8 @@ func (this *FileInfo) GetFileInfo(index int, length int) []byte {
 		if err != nil {
 			log.Fatal("Can't read file2: ", this.File.Name(), " ", index, " ", err)
 		}
-		return ret
+		return ret[0:Min(pieceSize, int(f.Size()-int64(index*pieceSize)))]
+
 	} else { //case 2: folder
 		ret = make([]byte, 0)
 		cur := 0
@@ -99,11 +101,12 @@ func (this *FileInfo) writeToFile(index int, data []byte) error {
 	defer this.FileLock.Unlock()
 
 	if this.File != nil {
+		f, _ := this.File.Stat()
 		_, err := this.File.Seek(int64(index*pieceSize), 0)
 		if err != nil {
 			return err
 		}
-		_, err = this.File.Write(data)
+		_, err = this.File.Write(data[0:Min(int(f.Size()-int64(index*pieceSize)), len(data))])
 		_ = this.File.Sync()
 		return err
 	} else {

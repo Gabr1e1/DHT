@@ -5,6 +5,7 @@ import (
 	"../../src/Kademlia"
 	"errors"
 	"fmt"
+	"github.com/cheggaaa/pb"
 	"log"
 	"math/rand"
 	"net/rpc"
@@ -41,8 +42,7 @@ func (this *Peer) Run(addr string, port int) {
 }
 
 func (this *Peer) PublishFile(fileName string) string {
-	file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-	defer file.Close()
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0777)
 	if err != nil {
 		fmt.Println("Can't open File")
 		return ""
@@ -178,7 +178,7 @@ func (this *Peer) choosePeer(infoHash string, pieceNum int) (PeerInfo, error) {
 
 func (this *Peer) verify(infoHash string, pieceNum int, curPiece []byte, dec map[interface{}]interface{}) bool {
 	a := []byte(DHT.GetByteHash(string(curPiece)))
-	b := []byte(dec["pieces"].(string)[pieceNum*20 : (pieceNum+1)*20])
+	b := []byte(dec["pieces"].(string)[pieceNum*20:(pieceNum+1)*20])
 	if len(a) != len(b) {
 		fmt.Println("Downloaded", pieceNum, "len: ", len(curPiece))
 		fmt.Println("Hash of downloaded file: \n", []byte(DHT.GetByteHash(string(curPiece))))
@@ -220,6 +220,9 @@ func (this *Peer) download(infoHash string, pieceNum int, dec map[interface{}]in
 		if err != nil {
 			ch <- err
 		}
+		this.lock.Lock()
+		defer this.lock.Unlock()
+
 		if this.verify(infoHash, pieceNum, curPiece, dec) {
 			t := this.FileStat[infoHash]
 			t.isDownloading[pieceNum] = false
@@ -242,7 +245,6 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 	if _, ok := dec["length"]; ok {
 		/* allocate file */
 		file, _ := os.Create(dec["name"].(string))
-		defer file.Close()
 		if file == nil {
 			log.Fatal("Can't create file")
 		}
@@ -268,7 +270,7 @@ func (this *Peer) allocate(infoHash string, dec map[interface{}]interface{}) {
 			/* allocate file */
 			file, _ := os.Create(dec["name"].(string) + "/" + dir + fileName)
 			if file == nil {
-				log.Fatal("Can't create file ", dec["name"].(string)+"/"+dir+fileName)
+				log.Fatal("Can't create file ", dec["name"].(string)+"/"+dir+fileName, dir, fileName)
 			}
 			num := curFile["length"].(int) / pieceSize
 			if curFile["length"].(int)%pieceSize != 0 {
@@ -306,8 +308,7 @@ func (this *Peer) getNextPiece(infoHash string, total int) int {
 
 	for i := 0; i < total; i++ {
 		if _, ok := t.Pieces[i]; (!ok) && (!t.isDownloading[i]) {
-			tmp := this.FileStat[infoHash]
-			tmp.isDownloading[i] = true
+			t.isDownloading[i] = true
 			this.FileStat[infoHash] = t
 			return i
 		}
@@ -322,16 +323,19 @@ func (this *Peer) Download(magnetLink string) bool {
 		return false
 	}
 
+	this.lock.Lock()
 	dec := Decode(string(this.FileStat[infoHash].Torrent)).(map[interface{}]interface{})
 	t := this.FileStat[infoHash]
 	t.dec = dec
 	t.isDownloading = make(map[int]bool)
 	this.FileStat[infoHash] = t
+	this.lock.Unlock()
 
 	this.allocate(infoHash, dec)
 	this.Node.Put(infoHash, this.addr)
 
 	total := len(dec["pieces"].(string)) / 20
+	bar := pb.StartNew(total)
 
 	var wg sync.WaitGroup
 	wg.Add(maxConcurrentThread)
@@ -345,11 +349,14 @@ func (this *Peer) Download(magnetLink string) bool {
 				}
 				err := this.download(infoHash, t, dec)
 				if err != nil {
-					fmt.Println("Piece", i, "download failed")
+					fmt.Println("Piece", t, "download failed", err)
+				} else {
+					bar.Increment()
 				}
 			}
 		}()
 	}
 	wg.Wait()
+	bar.Finish()
 	return true
 }

@@ -112,8 +112,12 @@ func EncodeFolder(folderName string) ([]byte, string) {
 			fmt.Println(path, info.Size())
 
 			cur["length"] = info.Size()
+			r := "\\"
 			//fmt.Println("File: ", path[len(folderName)+1:])
-			cur["path"] = strings.Split(path[len(folderName)+1:], "/")
+			if !strings.Contains(path[len(folderName)+1:], "\\") {
+				r = "/"
+			}
+			cur["path"] = strings.Split(path[len(folderName)+1:], r)
 
 			files = append(files, cur)
 			addHash(&pieces, &data, path)
